@@ -39,7 +39,7 @@ const register = async (req, res) => {
     });
 
     // create JWT Token
-    const token = jwt.sign({userId:userDoc._id, email: userDoc.email}, process.env.JWT_SECRET, {
+    const token = jwt.sign({userId:userDoc._id, email: userDoc.email}, process.env.JWT_ACCESS_SECRET, {
       expiresIn: "3h", 
     });
 
