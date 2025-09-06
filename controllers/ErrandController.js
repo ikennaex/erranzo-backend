@@ -13,7 +13,7 @@ const postErrand = async (req, res) => {
             location,
             status,
             priority,
-            poster_id: req.user.id
+            poster_id: req.user._id
         });
         res.status(200).json({message: "Errand posted successfully", newErrand});
     } catch (error) {
