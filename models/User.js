@@ -9,7 +9,7 @@ const userSchema = new Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   isVerified: { type: Boolean, default: false }, 
-  refreshTokens: { type: [String], default: [] }
+  refreshToken: { type: String }
 }, { timestamps: true });
 
 const UserModel = mongooose.model("User", userSchema);

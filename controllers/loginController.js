@@ -31,7 +31,7 @@ const login = async (req, res) => {
     );
 
     // Refrsh token saved in DB
-    user.refreshTokens.push(refreshToken);r
+    user.refreshToken = refreshToken;
     await user.save();
 
     // Send refresh token in HttpOnly cookie
@@ -60,7 +60,7 @@ const refreshTokenHandler = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const user = await UserModel.findById(decoded.id);
 
-    if (!user || !user.refreshTokens.includes(token)) {
+    if (!user || user.refreshToken !== token) {
       return res.status(403).json({ message: "Refresh token mismatch" });
     }
 
@@ -77,49 +77,31 @@ const refreshTokenHandler = async (req, res) => {
   }
 };
 
-
 const logout = async (req, res) => {
-  const token = req.cookies.refreshToken;
-  if (!token) return res.sendStatus(204);
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-    const user = await UserModel.findById(decoded.id);
-
-    if (user) {
-      user.refreshTokens = user.refreshTokens.filter((t) => t !== token);
-      await user.save();
+    const token = req.cookies.refreshToken;
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+      const user = await UserModel.findById(decoded.id);
+      if (user) {
+        user.refreshToken = null; // clear from DB
+        await user.save();
+      }
     }
 
-    res.clearCookie("refreshToken");
-    res.sendStatus(200);
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "None",
+      path: "/",
+    });
+
+    res.json({ message: "Logged out successfully" });
   } catch (err) {
-    res.clearCookie("refreshToken");
-    res.sendStatus(200);
+    console.error("Logout error:", err);
+    res.status(500).json({ message: "Logout failed" });
   }
 };
-
-const logoutAll = async (req, res) => {
-  try {
-    const decoded = jwt.verify(
-      req.cookies.refreshToken,
-      process.env.JWT_REFRESH_SECRET
-    );
-    const user = await UserModel.findById(decoded.id);
-
-    if (user) {
-      user.refreshTokens = [];
-      await user.save();
-    }
-
-    res.clearCookie("refreshToken");
-    res.sendStatus(200);
-  } catch (err) {
-    res.clearCookie("refreshToken");
-    res.sendStatus(200);
-  }
-};
-
 
 const getLoggedUserProfile = async (req, res) => {
   try {
@@ -135,4 +117,4 @@ const getLoggedUserProfile = async (req, res) => {
   }
 };
 
-module.exports = { login, getLoggedUserProfile, refreshTokenHandler, logout, logoutAll };
+module.exports = { login, getLoggedUserProfile, refreshTokenHandler, logout };
