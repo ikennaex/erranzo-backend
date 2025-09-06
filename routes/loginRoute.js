@@ -5,7 +5,7 @@ const { authToken } = require('../middleware/auth');
 
 router.post('/signin', login);
 router.get('/profile', authToken, getLoggedUserProfile);
-router.get('/refresh', refreshTokenHandler);
-router.get('/logout', logout);
+router.post('/refresh', refreshTokenHandler);
+router.post('/logout', logout);
 
 module.exports = router;
