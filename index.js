@@ -8,6 +8,7 @@ const loginRoute = require("./routes/loginRoute");
 const profileRoute = require("./routes/profileRoute");
 const verifyEmailRoute = require("./routes/verifyEmailRoute");
 const errandRoutes = require("./routes/errandRoutes");
+const cookieParser = require("cookie-parser");
 
 
 require('dotenv').config();
@@ -15,8 +16,9 @@ require('dotenv').config();
 // database connection 
 connectDB() 
 
-// middelware 
+// middelwares
 app.use(express.json());
+app.use(cookieParser());
 
 // cors middleware
 app.use(
