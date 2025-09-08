@@ -92,8 +92,7 @@ const assignErrand = async (req, res) => {
         if (!errand) {
             return res.status(404).json({ message: "Errand not found" });
         }
-
-        //save to db
+        // save to DB
         errand.erranzer_id = erranzer_id;
         errand.status = "in_progress";
 
@@ -106,7 +105,7 @@ const assignErrand = async (req, res) => {
 }
 
 module.exports = {
-    e,
+    postErrand,
     assignErrand,
     getAllErrands,
     getErrandById,

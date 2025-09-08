@@ -33,10 +33,7 @@ app.use(
 );
 
 // Route handlers
-app.use("/auth", registerRoute);
-app.use("/auth", loginRoute);
-app.use("/auth", verifyEmailRoute);
-app.use("/user", profileRoute);
+e
 
 // Errand Routes
 app.use("/errands", errandRoutes);
