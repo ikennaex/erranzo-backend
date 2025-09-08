@@ -83,8 +83,31 @@ const editErrand = async (req, res) => {
     }
 }
 
+const assignErrand = async (req, res) => {
+    const { id } = req.params;
+    const { erranzer_id } = req.body;
+
+    try {
+        const errand = await ErrandModel.findById(id);
+        if (!errand) {
+            return res.status(404).json({ message: "Errand not found" });
+        }
+
+        //save to db
+        errand.erranzer_id = erranzer_id;
+        errand.status = "in_progress";
+
+        res.status(200).json({ message: "This errand has been assigned to you successfully", errand });
+        await errand.save();
+    } catch (err) {
+        console.error("Error assigning errand:", err);
+        res.status(500).json({ message: "Failed to assign errand", error: err.message });
+    }
+}
+
 module.exports = {
-    postErrand,
+    e,
+    assignErrand,
     getAllErrands,
     getErrandById,
     deleteErrand,
