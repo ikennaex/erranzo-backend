@@ -26,10 +26,12 @@ const authToken = (req, res, next) => {
 
 // A user can only update their own profile.
 
+// check later
+
 const checkOwnership = async (req, res, next) => {
   try {
     const userId = req.params.id; // e.g. /users/:id
-    const loggedInUserId = req.user._id;
+    const loggedInUserId = req.user.id;
 
     if (userId !== loggedInUserId) {
       return res.status(403).json({ message: "You do not have permission" });
@@ -41,4 +43,28 @@ const checkOwnership = async (req, res, next) => {
   }
 };
 
-module.exports = { authToken, checkOwnership };
+const checkErrandOwnership = async (req, res, next) => {
+  try {
+    const errandId = req.params.id;       // the errand being edited
+    const loggedInUserId = req.user.id;   // user from auth token
+
+    // find the errand in DB
+    const errand = await ErrandModel.findById(errandId);
+
+    if (!errand) {
+      return res.status(404).json({ message: "Errand not found" });
+    }
+
+    // check if the logged-in user is the owner
+    if (errand.poster_id.toString() !== loggedInUserId) {
+      return res.status(403).json({ message: "You do not have permission" });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
+module.exports = { authToken, checkOwnership, checkErrandOwnership };
