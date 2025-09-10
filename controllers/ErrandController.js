@@ -1,3 +1,4 @@
+const { default: mongoose } = require("mongoose");
 const ErrandModel = require("../models/Errand");
 
 const postErrand = async (req, res) => {
