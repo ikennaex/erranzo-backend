@@ -1,4 +1,5 @@
 // Authentication middleware 
+const ErrandModel = require("../models/Errand");
 const UserModel = require("../models/User");
 require('dotenv').config();
 
