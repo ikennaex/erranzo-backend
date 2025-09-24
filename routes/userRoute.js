@@ -3,8 +3,8 @@ const { getUserProfile, updateUserProfile, getAllErrandsPosted, getAllAcceptedEr
 const {authToken, checkOwnership} = require('../middleware/auth')
 const router = express.Router()
 
-router.get('/allpostederrands', authToken, getAllErrandsPosted)  // get all errands posted by a user 
-router.get('/allacceptederrands', authToken, getAllAcceptedErrands)  // get all errands posted by a user 
+router.get('/errands/allpostederrands', authToken, getAllErrandsPosted)  // get all errands posted by a user 
+router.get('/errands/allacceptederrands', authToken, getAllAcceptedErrands)  // get all errands posted by a user 
 router.get('/:id', getUserProfile)
 router.put('/:id', authToken, checkOwnership, updateUserProfile)
 
