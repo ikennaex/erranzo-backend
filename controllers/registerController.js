@@ -5,7 +5,7 @@ const bcrypt = require("bcrypt");
 
 const register = async (req, res) => {
   try {
-    const { username, email, phoneNumber, password, firstName, lastName } =
+    const { username, email, phoneNumber, password, firstName, lastName, province } =
       req.body;
 
     // check if username or email or phone number already exists
@@ -35,6 +35,7 @@ const register = async (req, res) => {
       password: hashPass,
       firstName,
       lastName,
+      province
     });
 
     // create JWT Token
