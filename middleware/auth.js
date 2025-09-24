@@ -31,10 +31,12 @@ const authToken = (req, res, next) => {
 
 const checkOwnership = async (req, res, next) => {
   try {
-    const userId = req.params.id; // e.g. /users/:id
     const loggedInUserId = req.user.id;
+    const postId = req.params.id
 
-    if (userId !== loggedInUserId) {
+    const errandDoc = ErrandModel.findById(postId)
+
+    if (errandDoc.poster_id !== loggedInUserId) {
       return res.status(403).json({ message: "You do not have permission" });
     }
 
