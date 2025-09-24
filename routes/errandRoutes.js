@@ -6,7 +6,7 @@ const router = express.Router()
 router.post("/", authToken, postErrand)
 router.get("/", getAllErrands)
 router.get("/:id", getErrandById)
-router.delete("/:id", checkOwnership, deleteErrand)
+router.delete("/:id", authToken, checkOwnership, deleteErrand)
 router.put("/:id", authToken,checkErrandOwnership, editErrand)
 router.put("/assign/:id", authToken, assignErrand)
 
