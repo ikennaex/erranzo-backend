@@ -14,6 +14,8 @@ const userSchema = new Schema({
   wallet: {},
   errandsCreated: {},
   errandsInvolved: {},
+  province: {type: String, required: true},
+  country: {type: String, default: "Canada"},
   isVerified: { type: Boolean, default: false }, 
   refreshToken: { type: String }
 }, { timestamps: true });

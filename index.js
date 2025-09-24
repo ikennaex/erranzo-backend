@@ -5,7 +5,7 @@ const cors = require("cors")
 const connectDB = require("./config/dbConfig");
 const registerRoute = require("./routes/registerRoute");
 const loginRoute = require("./routes/loginRoute");
-const profileRoute = require("./routes/profileRoute");
+const userRoute = require("./routes/userRoute");
 const verifyEmailRoute = require("./routes/verifyEmailRoute");
 const errandRoutes = require("./routes/errandRoutes");
 const cookieParser = require("cookie-parser");
@@ -36,7 +36,7 @@ app.use(
 app.use("/auth", registerRoute);
 app.use("/auth", loginRoute);
 app.use("/auth", verifyEmailRoute);
-app.use("/user", profileRoute);
+app.use("/user", userRoute);
 
 // Errand Routes
 app.use("/errands", errandRoutes);

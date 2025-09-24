@@ -141,7 +141,7 @@ const editErrand = async (req, res) => {
 
 const assignErrand = async (req, res) => {
   const { id } = req.params;
-  const { erranzer_id } = req.body;
+  const erranzer_id = req.user.id;
 
   try {
     const errand = await ErrandModel.findById(id);
@@ -151,12 +151,13 @@ const assignErrand = async (req, res) => {
     // save to DB
     errand.erranzer_id = erranzer_id;
     errand.status = "in_progress";
+    
+    await errand.save();
 
     res.status(200).json({
       message: "This errand has been assigned to you successfully",
       errand,
     });
-    await errand.save();
   } catch (err) {
     console.error("Error assigning errand:", err);
     res
