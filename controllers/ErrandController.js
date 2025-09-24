@@ -63,7 +63,7 @@ const getErrandById = async (req, res) => {
 };
 
 const deleteErrand = async (req, res) => {
-  const { id } = req.params;e
+  const { id } = req.params;
 
   try {
     const deletedErrand = await ErrandModel.findByIdAndDelete(id);
