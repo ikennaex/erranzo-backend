@@ -1,5 +1,8 @@
 const { default: mongoose } = require("mongoose");
 const ErrandModel = require("../models/Errand");
+const {
+  sendNotification,
+} = require("../utils/notifications/errandnotification");
 
 const postErrand = async (req, res) => {
   const {
@@ -25,6 +28,17 @@ const postErrand = async (req, res) => {
       priority,
       poster_id: req.user.id,
     });
+
+    await sendNotification({
+      recipientId: "all",
+      senderId: req.user.id,
+      errandId: newErrand._id,
+      type: "errand_posted",
+      message: `${req.user.name || "Someone"} just posted a new errand: ${
+        newErrand.title
+      }`,
+    });
+
     res.status(200).json({ message: "Errand posted successfully", newErrand });
   } catch (error) {
     res
@@ -82,15 +96,8 @@ const deleteErrand = async (req, res) => {
 
 const editErrand = async (req, res) => {
   const { id } = req.params;
-  const {
-    title,
-    description,
-    budget,
-    deadline,
-    category,
-    location,
-    priority,
-  } = req.body;
+  const { title, description, budget, deadline, category, location, priority } =
+    req.body;
 
   try {
     // validate ID before querying
@@ -151,8 +158,16 @@ const assignErrand = async (req, res) => {
     // save to DB
     errand.erranzer_id = erranzer_id;
     errand.status = "in_progress";
-    
+
     await errand.save();
+
+    await sendNotification({
+      recipientId: errand.poster_id, 
+      senderId: erranzer_id, 
+      errandId: errand._id, 
+      type: "errand_accepted", 
+      message: `Your errand "${errand.title}" has been assigned to an erranzer.`,
+    });
 
     res.status(200).json({
       message: "This errand has been assigned to you successfully",

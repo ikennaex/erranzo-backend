@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const UserModel = require("../models/User");
-const sendVerificationMail = require("../emails/sendVerificationMail"); 
+const sendVerificationMail = require("../utils/emails/sendVerificationMail");
 
 // Resend verification email
 const resendVerificationEmail = async (req, res) => {

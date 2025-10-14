@@ -1,61 +1,40 @@
 const express = require("express");
-const app = express();
-const port = process.env.PORT || 4000; 
-const cors = require("cors")
-const connectDB = require("./config/dbConfig");
-const registerRoute = require("./routes/registerRoute");
-const loginRoute = require("./routes/loginRoute");
-const userRoute = require("./routes/userRoute");
-const verifyEmailRoute = require("./routes/verifyEmailRoute");
-const errandRoutes = require("./routes/errandRoutes");
+const http = require("http");
+const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const connectDB = require("./config/dbConfig");
+const { initSocket } = require("./config/socket");
 
+const app = express();
+require("dotenv").config();
 
-require('dotenv').config();
+connectDB();
 
-// database connection 
-connectDB() 
-
-// middelwares
 app.use(express.json());
 app.use(cookieParser());
-
-// cors middleware
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://erranzo.onrender.com"
+      "https://erranzo.onrender.com",
     ],
     credentials: true,
   })
 );
 
-// Route handlers
-app.use("/auth", registerRoute);
-app.use("/auth", loginRoute);
-app.use("/auth", verifyEmailRoute);
-app.use("/user", userRoute);
+// Routes
+app.use("/auth", require("./routes/registerRoute"));
+app.use("/auth", require("./routes/loginRoute"));
+app.use("/auth", require("./routes/verifyEmailRoute"));
+app.use("/user", require("./routes/userRoute"));
+app.use("/errands", require("./routes/errandRoutes"));
+app.use("/api", require("./routes/testRoute"));
 
-// Errand Routes
-app.use("/errands", errandRoutes);
+app.get("/", (req, res) => res.send("Hello World"));
 
-// 
+const server = http.createServer(app);
+initSocket(server);
 
-
-
-// server test 
-app.get("/", (req, res) => {
-  res.send("Hello World");
-});
-
-
-
-
-
-
-// run server
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  });
+const port = process.env.PORT || 4000;
+server.listen(port, () => console.log(`Server running on port ${port}`));

@@ -1,4 +1,4 @@
-const sendVerificationMail = require("../emails/sendVerificationMail");
+const sendVerificationMail = require("../utils/emails/sendVerificationMail");
 const jwt = require("jsonwebtoken");
 const UserModel = require("../models/User");
 const bcrypt = require("bcrypt");
