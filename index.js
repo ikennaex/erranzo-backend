@@ -27,6 +27,7 @@ app.use(
 app.use("/auth", require("./routes/registerRoute"));
 app.use("/auth", require("./routes/loginRoute"));
 app.use("/auth", require("./routes/verifyEmailRoute"));
+app.use("/auth", require("./routes/resetPasswordRoute"));
 app.use("/user", require("./routes/userRoute"));
 app.use("/errands", require("./routes/errandRoutes"));
 app.use("/api", require("./routes/testRoute"));
