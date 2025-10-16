@@ -24,7 +24,7 @@ const forgotPassword = async (req, res) => {
     await user.save();
 
     // Send email with link (frontend page)
-    const resetUrl = `https://erranzo.onrender.com/reset-password/${resetToken}`;
+    const resetUrl = `https://erranzo.onrender.com/reset-password/${resetToken}`;   
     await sendResetEmail(user.email, resetUrl);
 
     res.status(200).json({ message: "Password reset link sent to your email" });

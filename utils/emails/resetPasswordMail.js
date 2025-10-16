@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const sendResetEmail = async (email, resetUrl) => {
   return transporter.sendMail({
-    from: `"Support" <${process.env.EMAIL_USER}>`,
+    from: `"Erranzo Support" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: "Reset your password",
     html: `
