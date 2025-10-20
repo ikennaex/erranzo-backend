@@ -31,6 +31,7 @@ app.use("/auth", require("./routes/resetPasswordRoute"));
 app.use("/user", require("./routes/userRoute"));
 app.use("/errands", require("./routes/errandRoutes"));
 app.use("/api", require("./routes/testRoute"));
+app.use("/profile", require("./routes/profileRoute"));
 
 app.get("/", (req, res) => res.send("Hello World"));
 
