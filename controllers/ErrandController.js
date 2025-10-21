@@ -66,6 +66,9 @@ const getQuickErrands = async (req, res) => {
       priority: "urgent",
       createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
     });
+    res
+      .status(200)
+      .json({ message: "Quick errands fetched successfully", errands });
   } catch (err) {
     res
       .status(500)
