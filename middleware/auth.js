@@ -1,7 +1,7 @@
-// Authentication middleware 
+// Authentication middleware
 const ErrandModel = require("../models/Errand");
 const UserModel = require("../models/User");
-require('dotenv').config();
+require("dotenv").config();
 
 const jwt = require("jsonwebtoken");
 
@@ -16,14 +16,12 @@ const authToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-    req.user = decoded; 
+    req.user = decoded;
     next();
   } catch (error) {
     return res.status(401).json({ message: "Token is not valid" });
   }
 };
-
-
 
 // A user can only update their own profile.
 
@@ -31,25 +29,30 @@ const authToken = (req, res, next) => {
 
 const checkOwnership = async (req, res, next) => {
   try {
-    const loggedInUserId = req.user.id;
-    const postId = req.params.id
+    const loggedInUserId = req.user.id; // from token
+    const userId = req.params.id; // from URL params
 
-    const errandDoc = ErrandModel.findById(postId)
+    const userDoc = await UserModel.findById(userId);
+    if (!userDoc) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    if (errandDoc.poster_id !== loggedInUserId) {
+    // Compare IDs safely
+    if (userDoc._id.toString() !== loggedInUserId.toString()) {
       return res.status(403).json({ message: "You do not have permission" });
     }
 
     next();
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
 const checkErrandOwnership = async (req, res, next) => {
   try {
-    const errandId = req.params.id;       // the errand being edited
-    const loggedInUserId = req.user.id;   // user from auth token
+    const errandId = req.params.id; // the errand being edited
+    const loggedInUserId = req.user.id; // user from auth token
 
     // find the errand in DB
     const errand = await ErrandModel.findById(errandId);
@@ -65,9 +68,10 @@ const checkErrandOwnership = async (req, res, next) => {
 
     next();
   } catch (error) {
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 };
-
 
 module.exports = { authToken, checkOwnership, checkErrandOwnership };
