@@ -4,6 +4,6 @@ const { editProfile, getProfile } = require('../controllers/profileController');
 const router = express.Router()
 
 router.get("/", authToken, getProfile)
-router.patch("/", authToken, checkOwnership, editProfile)
+router.patch("/:id", authToken, checkOwnership, editProfile)
 
 module.exports = router;
