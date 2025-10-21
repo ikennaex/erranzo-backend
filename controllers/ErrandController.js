@@ -60,6 +60,19 @@ const getAllErrands = async (req, res) => {
   }
 };
 
+const getQuickErrands = async (req, res) => {
+  try {
+    const errands = await ErrandModel.find({
+      priority: "urgent",
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Failed to fetch quick errands", error: err.message });
+  }
+};
+
 const getErrandById = async (req, res) => {
   const { id } = req.params;
 
@@ -162,10 +175,10 @@ const assignErrand = async (req, res) => {
     await errand.save();
 
     await sendNotification({
-      recipientId: errand.poster_id, 
-      senderId: erranzer_id, 
-      errandId: errand._id, 
-      type: "errand_accepted", 
+      recipientId: errand.poster_id,
+      senderId: erranzer_id,
+      errandId: errand._id,
+      type: "errand_accepted",
       message: `Your errand "${errand.title}" has been assigned to an erranzer.`,
     });
 
@@ -188,4 +201,5 @@ module.exports = {
   getErrandById,
   deleteErrand,
   editErrand,
+  getQuickErrands,
 };
