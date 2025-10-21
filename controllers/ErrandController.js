@@ -64,7 +64,7 @@ const getQuickErrands = async (req, res) => {
   try {
     const errands = await ErrandModel.find({
       priority: "urgent",
-      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
     });
     res
       .status(200)
