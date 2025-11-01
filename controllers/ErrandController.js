@@ -198,6 +198,38 @@ const assignErrand = async (req, res) => {
   }
 };
 
+const markCompleted = async (req, res) => {
+  const { id } = req.params;
+  // id of whoever is making the request
+  const userId = req.user.id;
+  try {
+    const errand = await ErrandModel.findById(id);
+    if (!errand) {
+      return res.status(404).json({ message: "Errand not found" });
+    }
+
+    if (errand.poster_id.toString() === userId.toString()) {
+      errand.posterCompleted = true;
+    } else if (errand.erranzer_id.toString() === userId.toString()) {
+      errand.erranzerCompleted = true;
+    } else {
+      return res.status(500).json({ message: "User not authorized" });
+    }
+
+    if (errand.posterCompleted && errand.erranzerCompleted) {
+      errand.status = "completed";
+    }
+
+    await errand.save();
+    res.status(200).json({ message: "Marked as completed successfully", errand });
+  } catch (err) {
+    console.error("Error Updating errand:", err);
+    res
+      .status(500)
+      .json({ message: "Failed to complete errand", error: err.message });
+  }
+};
+
 module.exports = {
   postErrand,
   assignErrand,
@@ -206,4 +238,5 @@ module.exports = {
   deleteErrand,
   editErrand,
   getQuickErrands,
+  markCompleted
 };

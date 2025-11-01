@@ -11,7 +11,9 @@ const errandSchema = new Schema({
   status: { type: String, enum: ["open", "in_progress", "completed"], default: "open", required: true },
   priority: { type: String, enum: ["normal", "urgent"], default: "normal", required: true },
   erranzer_id: { type: Schema.Types.ObjectId, ref: "User", default: null },
-  poster_id: { type: Schema.Types.ObjectId, ref: "User", required: true }
+  poster_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  posterCompleted: { type: Boolean, default: false },
+  erranzerCompleted: { type: Boolean, default: false },
 }, { timestamps: true }); 
 
 const ErrandModel = mongooose.model("Errand", errandSchema);
