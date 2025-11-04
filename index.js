@@ -34,7 +34,11 @@ app.use("/api", require("./routes/testRoute"));
 app.use("/profile", require("./routes/profileRoute"));
 app.use("/search", require("./routes/searchRoute"));
 
-app.get("/", (req, res) => res.send("Hello World"));
+
+app.use("/admin", require("./routes/adminLoginRoute"));
+app.use("/admin", require("./routes/adminRoutes"));
+
+app.get("/", (req, res) => res.send("Hello World")); 
 
 const server = http.createServer(app);
 initSocket(server);
