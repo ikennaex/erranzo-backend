@@ -5,6 +5,6 @@ const router = express.Router()
 
 router.get("/errands", adminAuth, adminGetAllErrands)
 router.get("/users", adminAuth, getTotalUsers)
-router.get("/aerranzers", adminAuth, getTotalErranzers)
+router.get("/erranzers", adminAuth, getTotalErranzers)
 
 module.exports = router;
