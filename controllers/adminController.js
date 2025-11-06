@@ -28,7 +28,7 @@ const getTotalUsers = async (req, res) => {
 const getTotalErranzers = async (req, res) => {
   try {
     const erranzers = await UserModel.countDocuments({role: "erranzer"});
-    res.status(500).json({totalErranzers: erranzers});
+    res.status(200).json({totalErranzers: erranzers});
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error getting erranzers" });
