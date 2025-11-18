@@ -35,4 +35,28 @@ const getTotalErranzers = async (req, res) => {
   }
 };
 
-module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers };
+// get users details 
+const getUserDetails = async (req, res) => {
+  try {
+    const users = await UserModel.find({ role: "user" });
+    res.status(200).json({ users });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error getting user details" });
+  }
+}
+
+// get users details 
+const getErranzerDetails = async (req, res) => {
+  try {
+    const erranzers = await UserModel.find({ role: "erranzer" });
+    res.status(200).json({ erranzers });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error getting erranzer details" });
+  }
+}
+
+
+
+module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers, getUserDetails, getErranzerDetails };
