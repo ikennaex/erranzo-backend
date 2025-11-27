@@ -1,5 +1,5 @@
-const mongooose = require("mongoose");
-const { Schema } = mongooose;
+const mongoose = require("mongoose");
+const { Schema } = mongoose;
 
 const errandSchema = new Schema({
   title: { type: String, required: true },
@@ -16,6 +16,6 @@ const errandSchema = new Schema({
   erranzerCompleted: { type: Boolean, default: false },
 }, { timestamps: true }); 
 
-const ErrandModel = mongooose.model("Errand", errandSchema);
+const ErrandModel = mongoose.model("Errand", errandSchema);
 
 module.exports = ErrandModel;

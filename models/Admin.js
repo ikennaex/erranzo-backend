@@ -1,5 +1,5 @@
-const mongooose = require("mongoose");
-const { Schema } = mongooose;
+const mongoose = require("mongoose");
+const { Schema } = mongoose;
 
 const AdminSchema = new Schema(
   {
@@ -10,5 +10,5 @@ const AdminSchema = new Schema(
   { timestamps: true }
 );
 
-const AdminModel = mongooose.model("Admin", AdminSchema);
+const AdminModel = mongoose.model("Admin", AdminSchema);
 module.exports = AdminModel;

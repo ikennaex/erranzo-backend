@@ -10,7 +10,7 @@ require("dotenv").config();
 
 connectDB();
 
-app.use(express.json());
+app.use(express.json()); 
 app.use(cookieParser());
 app.use(
   cors({
@@ -33,6 +33,7 @@ app.use("/errands", require("./routes/errandRoutes"));
 app.use("/api", require("./routes/testRoute"));
 app.use("/profile", require("./routes/profileRoute"));
 app.use("/search", require("./routes/searchRoute"));
+app.use("/chat", require("./routes/chatRoute"));
 
 
 app.use("/admin", require("./routes/adminLoginRoute"));
