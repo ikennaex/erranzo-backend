@@ -6,7 +6,7 @@ const bcrypt = require("bcrypt");
 const register = async (req, res) => {
   try {
     const { username, email, phoneNumber, password, firstName, lastName, province } =
-      req.body;
+      req.body; 
 
     // check if username or email or phone number already exists
     const existingUser = await UserModel.findOne({
@@ -51,7 +51,7 @@ const register = async (req, res) => {
     const verifyURL = `http://localhost:4000/auth/verify-email/${token}`;
 
     // send verification email
-    await sendVerificationMail(email, verifyURL);
+    await sendVerificationMail({email, verifyURL});
 
     return res.status(201).json({
       message:

@@ -6,6 +6,12 @@ const login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
 
+    if (!identifier || !password) {
+      return res
+        .status(400)
+        .json({ message: "Identifier and password are required" });
+    }
+
     // Find user
     const user = await UserModel.findOne({
       $or: [{ email: identifier }, { username: identifier }],
@@ -21,13 +27,13 @@ const login = async (req, res) => {
     const accessToken = jwt.sign(
       { id: user._id, email: user.email },
       process.env.JWT_ACCESS_SECRET,
-      { expiresIn: "15m" } //
+      { expiresIn: "30d" }, //
     );
 
     const refreshToken = jwt.sign(
       { id: user._id, email: user.email },
       process.env.JWT_REFRESH_SECRET,
-      { expiresIn: "7d" } // long-lived
+      { expiresIn: "30d" }, // long-lived
     );
 
     // Refrsh token saved in DB
@@ -52,6 +58,58 @@ const login = async (req, res) => {
   }
 };
 
+const mobileLogin = async (req, res) => {
+  try {
+    const { identifier, password } = req.body;
+
+    if (!identifier || !password) {
+      return res
+        .status(400)
+        .json({ message: "Identifier and password are required" });
+    }
+
+    // Find user
+    const user = await UserModel.findOne({
+      $or: [{ email: identifier }, { username: identifier }],
+    });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Validate password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(401).json({ message: "Invalid credentials" });
+
+    // Create tokens
+    const accessToken = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: "30d" }, //
+    );
+
+    const refreshToken = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "30d" }, // long-lived
+    );
+
+    // Refrsh token saved in DB
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    // Send access token in response
+    const { password: _, refreshToken: __, ...safeUser } = user.toObject();
+    res.json({
+      message: "Login successful",
+      user: safeUser,
+      accessToken,
+      refreshToken,
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ message: "An error occurred during login" });
+  }
+};
+
 const refreshTokenHandler = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
@@ -67,7 +125,7 @@ const refreshTokenHandler = async (req, res) => {
     const newAccessToken = jwt.sign(
       { id: user._id, email: user.email },
       process.env.JWT_ACCESS_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "15m" },
     );
 
     res.json({ accessToken: newAccessToken });
@@ -117,4 +175,4 @@ const getLoggedUserProfile = async (req, res) => {
   }
 };
 
-module.exports = { login, getLoggedUserProfile, refreshTokenHandler, logout };
+module.exports = { login, getLoggedUserProfile, refreshTokenHandler, mobileLogin, logout };
