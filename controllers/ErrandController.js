@@ -4,6 +4,8 @@ const {
   sendNotification,
 } = require("../utils/notifications/errandnotification");
 
+const { sendPushNotification, TEMPLATES } = require("../notifications/notificationService");
+
 const postErrand = async (req, res) => {
   const {
     title,
@@ -28,6 +30,17 @@ const postErrand = async (req, res) => {
       priority,
       poster_id: req.user.id,
     });
+
+    const poster = newErrand.poster_id;
+
+    //change erranzer to erranzer name
+    if (poster?.pushToken) {
+      await sendPushNotification(
+        poster.pushToken,
+        TEMPLATES.ERRAND_POSTED(newErrand.title),
+        { errandId: newErrand._id, type: "errand_posted" }
+      );
+    }
 
     await sendNotification({
       recipientId: "all",
@@ -176,6 +189,18 @@ const assignErrand = async (req, res) => {
     errand.erranzer_id = erranzer_id;
     errand.status = "in_progress";
 
+    const poster = errand.poster_id;
+    const erranzer = errand.erranzer_id;
+
+    //change erranzer to erranzer name
+    if (poster?.pushToken) {
+      await sendPushNotification(
+        poster.pushToken,
+        TEMPLATES.ERRAND_ACCEPTED(erranzer, errand.title),
+        { errandId: errand._id, type: "errand_accepted" }
+      );
+    }
+
     await errand.save();
 
     await sendNotification({
@@ -219,6 +244,19 @@ const markCompleted = async (req, res) => {
     if (errand.posterCompleted && errand.erranzerCompleted) {
       errand.status = "completed";
     }
+
+    const poster = errand.poster_id;
+    const erranzer = errand.erranzer_id;
+
+    //change erranzer to erranzer name
+    if (poster?.pushToken) {
+      await sendPushNotification(
+        poster.pushToken,
+        TEMPLATES.ERRAND_COMPLETED(errand.title),
+        { errandId: errand._id, type: "errand_completed" }
+      );
+    }
+
 
     await errand.save();
     res.status(200).json({ message: "Marked as completed successfully", errand });
