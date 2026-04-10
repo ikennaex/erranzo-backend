@@ -251,6 +251,9 @@ const markCompleted = async (req, res) => {
       return res.status(404).json({ message: "Errand not found" });
     }
 
+    const isPoster = errand.poster_id.toString() === userId.toString();
+    const isErranzer = errand.erranzer_id.toString() === userId.toString();
+
     if (errand.poster_id.toString() === userId.toString()) {
       errand.posterCompleted = true;
     } else if (errand.erranzer_id.toString() === userId.toString()) {
@@ -258,6 +261,9 @@ const markCompleted = async (req, res) => {
     } else {
       return res.status(500).json({ message: "User not authorized" });
     }
+
+    if (isPoster) errand.posterCompleted = true;
+    if (isErranzer) errand.erranzerCompleted = true;
 
     if (errand.posterCompleted && errand.erranzerCompleted) {
       errand.status = "completed";
