@@ -13,11 +13,6 @@ const TEMPLATES = {
     body: `${erranzerName} has accepted your errand "${errandTitle}".`,
     channelId: "errands",
   }),
-  ERRAND_PRE_COMPLETED_ERRANZER: (errandTitle, name) => ({
-    title: "Errand Completed",
-    body: `"${errandTitle}" has been marked as completed by ${name}. Please confirm completion.`,
-    channelId: "errands",
-  }),
   ERRAND_PRE_COMPLETED: (errandTitle, name) => ({
     title: "Errand Completed",
     body: `"${errandTitle}" has been marked as completed by ${name}. Please confirm completion.`,

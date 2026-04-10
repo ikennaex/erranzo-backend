@@ -201,25 +201,25 @@ const assignErrand = async (req, res) => {
     errand.erranzer_id = erranzer_id;
     errand.status = "in_progress";
 
-    const poster = errand.poster_id;
-    const erranzer = errand.erranzer_id;
-
-    const user = await UserModel.findById(poster);
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    //change erranzer to erranzer name
-    if (user?.pushToken) {
-      await sendPushNotification(
-        user.pushToken,
-        TEMPLATES.ERRAND_ACCEPTED(user.firstName, errand.title),
-        { errandId: errand._id, type: "errand_accepted" },
-      );
-    }
 
     await errand.save();
+
+    const posterUser = await UserModel.findById(errand.poster_id);
+    const erranzerUser = await UserModel.findById(erranzer_id);
+ 
+    if (!posterUser) return res.status(404).json({ error: "Poster not found" });
+    if (!erranzerUser) return res.status(404).json({ error: "Erranzer not found" });
+
+    if (posterUser?.pushToken) {
+      await sendPushNotification(
+        posterUser.pushToken,
+        TEMPLATES.ERRAND_ACCEPTED(
+          `${erranzerUser.firstName} ${erranzerUser.lastName}`,
+          errand.title
+        ),
+        { errandId: errand._id.toString(), type: "errand_accepted" }
+      );
+    }
 
     await sendNotification({
       recipientId: errand.poster_id,
@@ -263,59 +263,51 @@ const markCompleted = async (req, res) => {
       errand.status = "completed";
     }
 
-    const poster = errand.poster_id;
-    const erranzer = errand.erranzer_id;
-
-    const user = await UserModel.findById(poster);
-    const erranzerUser = await UserModel.findById(erranzer);
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    //change erranzer to erranzer name
-
-    
-
     await errand.save();
 
-    const latestErrand = await ErrandModel.findById(id);
 
-    if (latestErrand.posterCompleted && latestErrand.erranzerCompleted) {
+    const posterUser = await UserModel.findById(errand.poster_id);
+    const erranzerUser = await UserModel.findById(errand.erranzer_id);
+ 
+    if (errand.posterCompleted && errand.erranzerCompleted) {
+ 
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
-          TEMPLATES.ERRAND_COMPLETED_ERRANZER(latestErrand.title),
-          { errandId: errand._id, type: "errand_completed" },
+          TEMPLATES.ERRAND_COMPLETED_ERRANZER(errand.title),
+          { errandId: errand._id.toString(), type: "errand_completed" }
         );
       }
-      if (user?.pushToken) {
+ 
+      if (posterUser?.pushToken) {
         await sendPushNotification(
-          user.pushToken,
-          TEMPLATES.ERRAND_COMPLETED_POSTER(latestErrand.title),
-          { errandId: errand._id, type: "errand_completed" },
+          posterUser.pushToken,
+          TEMPLATES.ERRAND_COMPLETED_POSTER(errand.title),
+          { errandId: errand._id.toString(), type: "errand_completed" }
         );
       }
-    } else if (latestErrand.posterCompleted && !latestErrand.erranzerCompleted) {
+ 
+    } else if (isPoster && !errand.erranzerCompleted) {
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
           TEMPLATES.ERRAND_PRE_COMPLETED(
-            latestErrand.title,
-            `${erranzerUser.firstName} ${erranzerUser.lastName}`,
+            errand.title,
+            `${posterUser.firstName} ${posterUser.lastName}` // who marked it
           ),
-          { errandId: errand._id, type: "errand_completed" },
+          { errandId: errand._id.toString(), type: "errand_pre_completed" }
         );
       }
-    } else if (!latestErrand.posterCompleted && latestErrand.erranzerCompleted) {
-      if (user?.pushToken) {
+ 
+    } else if (isErranzer && !errand.posterCompleted) {
+      if (posterUser?.pushToken) {
         await sendPushNotification(
-          user.pushToken,
+          posterUser.pushToken,
           TEMPLATES.ERRAND_PRE_COMPLETED(
-            latestErrand.title,
-            `${user.firstName} ${user.lastName}`,
+            errand.title,
+            `${erranzerUser.firstName} ${erranzerUser.lastName}` // who marked it
           ),
-          { errandId: errand._id, type: "errand_completed" },
+          { errandId: errand._id.toString(), type: "errand_pre_completed" }
         );
       }
     }
