@@ -35,6 +35,7 @@ app.use("/api", require("./routes/testRoute"));
 app.use("/profile", require("./routes/profileRoute"));
 app.use("/search", require("./routes/searchRoute"));
 app.use("/chat", require("./routes/chatRoute"));
+app.use("/expo-token", require("./routes/expoTokenRoute"));
 
 
 app.use("/admin", require("./routes/adminLoginRoute"));

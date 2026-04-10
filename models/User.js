@@ -17,6 +17,7 @@ const userSchema = new Schema(
     errandsInvolved: {},
     province: { type: String },
     country: { type: String, default: "Canada" },
+    pushToken: { type: String },
     isVerified: { type: Boolean, default: false },
     refreshToken: { type: String },
     resetPasswordToken: {
