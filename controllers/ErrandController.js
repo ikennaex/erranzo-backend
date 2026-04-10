@@ -5,7 +5,10 @@ const {
 } = require("../utils/notifications/errandnotification");
 const UserModel = require("../models/User");
 
-const { sendPushNotification, TEMPLATES } = require("../notifications/notificationService");
+const {
+  sendPushNotification,
+  TEMPLATES,
+} = require("../notifications/notificationService");
 
 const postErrand = async (req, res) => {
   const {
@@ -39,16 +42,15 @@ const postErrand = async (req, res) => {
     }).select("pushToken");
 
     console.log(`Found ${erranzers.length} erranzers to notify`);
-    
+
     if (erranzers.length > 0) {
       const tokens = erranzers.map((e) => e.pushToken);
       await sendPushNotification(
         tokens,
         TEMPLATES.ERRAND_POSTED(newErrand.title),
-        { errandId: newErrand._id.toString(), type: "errand_posted" }
+        { errandId: newErrand._id.toString(), type: "errand_posted" },
       );
     }
-
 
     await sendNotification({
       recipientId: "all",
@@ -154,7 +156,9 @@ const editErrand = async (req, res) => {
 
     // remove undefined fields so they won’t overwrite existing values
     const updates = Object.fromEntries(
-      Object.entries(allowedUpdates).filter(([_, value]) => value !== undefined)
+      Object.entries(allowedUpdates).filter(
+        ([_, value]) => value !== undefined,
+      ),
     );
 
     const updatedErrand = await ErrandModel.findByIdAndUpdate(
@@ -168,7 +172,7 @@ const editErrand = async (req, res) => {
         location,
         priority,
       },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedErrand) {
@@ -200,19 +204,18 @@ const assignErrand = async (req, res) => {
     const poster = errand.poster_id;
     const erranzer = errand.erranzer_id;
 
-    const user = await UserModel.findById(poster)
-    
+    const user = await UserModel.findById(poster);
+
     if (!user) {
-        return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found" });
     }
-    
 
     //change erranzer to erranzer name
     if (user?.pushToken) {
       await sendPushNotification(
         user.pushToken,
         TEMPLATES.ERRAND_ACCEPTED(user.firstName, errand.title),
-        { errandId: errand._id, type: "errand_accepted" }
+        { errandId: errand._id, type: "errand_accepted" },
       );
     }
 
@@ -263,24 +266,62 @@ const markCompleted = async (req, res) => {
     const poster = errand.poster_id;
     const erranzer = errand.erranzer_id;
 
-    const user = await UserModel.findById(poster)
-    
+    const user = await UserModel.findById(poster);
+    const erranzerUser = await UserModel.findById(erranzer);
+
     if (!user) {
-        return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
     //change erranzer to erranzer name
-    if (user?.pushToken) {
-      await sendPushNotification(
-        user.pushToken,
-        TEMPLATES.ERRAND_COMPLETED(errand.title),
-        { errandId: errand._id, type: "errand_completed" }
-      );
-    }
 
+    
 
     await errand.save();
-    res.status(200).json({ message: "Marked as completed successfully", errand });
+
+    const latestErrand = await ErrandModel.findById(id);
+
+    if (latestErrand.posterCompleted && latestErrand.erranzerCompleted) {
+      if (erranzerUser?.pushToken) {
+        await sendPushNotification(
+          erranzerUser.pushToken,
+          TEMPLATES.ERRAND_COMPLETED_ERRANZER(latestErrand.title),
+          { errandId: errand._id, type: "errand_completed" },
+        );
+      }
+      if (user?.pushToken) {
+        await sendPushNotification(
+          user.pushToken,
+          TEMPLATES.ERRAND_COMPLETED_POSTER(latestErrand.title),
+          { errandId: errand._id, type: "errand_completed" },
+        );
+      }
+    } else if (latestErrand.posterCompleted && !latestErrand.erranzerCompleted) {
+      if (erranzerUser?.pushToken) {
+        await sendPushNotification(
+          erranzerUser.pushToken,
+          TEMPLATES.ERRAND_PRE_COMPLETED(
+            latestErrand.title,
+            `${erranzerUser.firstName} ${erranzerUser.lastName}`,
+          ),
+          { errandId: errand._id, type: "errand_completed" },
+        );
+      }
+    } else if (!latestErrand.posterCompleted && latestErrand.erranzerCompleted) {
+      if (user?.pushToken) {
+        await sendPushNotification(
+          user.pushToken,
+          TEMPLATES.ERRAND_PRE_COMPLETED(
+            latestErrand.title,
+            `${user.firstName} ${user.lastName}`,
+          ),
+          { errandId: errand._id, type: "errand_completed" },
+        );
+      }
+    }
+    res
+      .status(200)
+      .json({ message: "Marked as completed successfully", errand });
   } catch (err) {
     console.error("Error Updating errand:", err);
     res
@@ -297,5 +338,5 @@ module.exports = {
   deleteErrand,
   editErrand,
   getQuickErrands,
-  markCompleted
+  markCompleted,
 };

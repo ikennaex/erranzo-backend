@@ -13,9 +13,24 @@ const TEMPLATES = {
     body: `${erranzerName} has accepted your errand "${errandTitle}".`,
     channelId: "errands",
   }),
-  ERRAND_COMPLETED: (errandTitle) => ({
+  ERRAND_PRE_COMPLETED_ERRANZER: (errandTitle, name) => ({
     title: "Errand Completed",
-    body: `"${errandTitle}" has been marked as completed. Your wallet will be credited shortly. `,
+    body: `"${errandTitle}" has been marked as completed by ${name}. Please confirm completion.`,
+    channelId: "errands",
+  }),
+  ERRAND_PRE_COMPLETED: (errandTitle, name) => ({
+    title: "Errand Completed",
+    body: `"${errandTitle}" has been marked as completed by ${name}. Please confirm completion.`,
+    channelId: "errands",
+  }),
+  ERRAND_COMPLETED_ERRANZER: (errandTitle) => ({
+    title: "Errand Completed",
+    body: `"${errandTitle}" has been marked as completed. Your wallet will be credited soon.`,
+    channelId: "errands",
+  }),
+  ERRAND_COMPLETED_POSTER: (errandTitle) => ({
+    title: "Errand Completed",
+    body: `"${errandTitle}" has been marked as completed.`,
     channelId: "errands",
   }),
   ERRAND_APPLIED: (applicantName, errandTitle) => ({
