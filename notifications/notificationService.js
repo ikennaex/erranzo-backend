@@ -42,6 +42,7 @@ const TEMPLATES = {
 
 // Core send function
 async function sendPushNotification(pushTokens, template, data = {}) {
+    console.log("Sending notification with template:", template);
   // pushTokens can be a single string or array
   const tokens = Array.isArray(pushTokens) ? pushTokens : [pushTokens];
 
@@ -67,6 +68,7 @@ async function sendPushNotification(pushTokens, template, data = {}) {
     try {
       const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
       tickets.push(...ticketChunk);
+      console.log("Tickets:", tickets);
     } catch (err) {
       console.error("Push notification error:", err);
     }

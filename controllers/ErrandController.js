@@ -32,22 +32,23 @@ const postErrand = async (req, res) => {
       poster_id: req.user.id,
     });
 
-    const poster = newErrand.poster_id;
+    const erranzers = await UserModel.find({
+      role: "erranzer",
+      pushToken: { $exists: true, $ne: null },
+      _id: { $ne: req.user.id },
+    }).select("pushToken");
 
-    const user = await UserModel.findById(poster)
+    console.log(`Found ${erranzers.length} erranzers to notify`);
     
-    if (!user) {
-        return res.status(404).json({ error: "User not found" });
-    }
-
-    //change erranzer to erranzer name
-    if (user?.pushToken) {
+    if (erranzers.length > 0) {
+      const tokens = erranzers.map((e) => e.pushToken);
       await sendPushNotification(
-        user.pushToken,
+        tokens,
         TEMPLATES.ERRAND_POSTED(newErrand.title),
-        { errandId: newErrand._id, type: "errand_posted" }
+        { errandId: newErrand._id.toString(), type: "errand_posted" }
       );
     }
+
 
     await sendNotification({
       recipientId: "all",
