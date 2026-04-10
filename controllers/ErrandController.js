@@ -3,6 +3,7 @@ const ErrandModel = require("../models/Errand");
 const {
   sendNotification,
 } = require("../utils/notifications/errandnotification");
+const UserModel = require("../models/User");
 
 const { sendPushNotification, TEMPLATES } = require("../notifications/notificationService");
 
@@ -33,10 +34,16 @@ const postErrand = async (req, res) => {
 
     const poster = newErrand.poster_id;
 
+    const user = await UserModel.findById(poster)
+    
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
     //change erranzer to erranzer name
-    if (poster?.pushToken) {
+    if (user?.pushToken) {
       await sendPushNotification(
-        poster.pushToken,
+        user.pushToken,
         TEMPLATES.ERRAND_POSTED(newErrand.title),
         { errandId: newErrand._id, type: "errand_posted" }
       );
@@ -192,11 +199,18 @@ const assignErrand = async (req, res) => {
     const poster = errand.poster_id;
     const erranzer = errand.erranzer_id;
 
+    const user = await UserModel.findById(poster)
+    
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
+    }
+    
+
     //change erranzer to erranzer name
-    if (poster?.pushToken) {
+    if (user?.pushToken) {
       await sendPushNotification(
-        poster.pushToken,
-        TEMPLATES.ERRAND_ACCEPTED(erranzer, errand.title),
+        user.pushToken,
+        TEMPLATES.ERRAND_ACCEPTED(user.firstName, errand.title),
         { errandId: errand._id, type: "errand_accepted" }
       );
     }
@@ -248,10 +262,16 @@ const markCompleted = async (req, res) => {
     const poster = errand.poster_id;
     const erranzer = errand.erranzer_id;
 
+    const user = await UserModel.findById(poster)
+    
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
     //change erranzer to erranzer name
-    if (poster?.pushToken) {
+    if (user?.pushToken) {
       await sendPushNotification(
-        poster.pushToken,
+        user.pushToken,
         TEMPLATES.ERRAND_COMPLETED(errand.title),
         { errandId: errand._id, type: "errand_completed" }
       );
