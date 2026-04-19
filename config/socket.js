@@ -1,7 +1,12 @@
 const { Server } = require("socket.io");
 const ErrandChatModel = require("../models/ErrandChat");
+const UserModel = require("../models/User");
+const { sendPushNotification, TEMPLATES } = require("../notifications/notificationService");
 
 let io;
+
+
+const activeInChat = new Map();
 
 function initSocket(server) {
   io = new Server(server, {
@@ -16,16 +21,33 @@ function initSocket(server) {
   });
 
   io.on("connection", (socket) => {
+
     socket.on("join_room", (userId) => {
       socket.join(userId);
+      socket.userId = userId;
     });
 
-    // Chat: user joins a specific errand chat room
+    // User opens a chat — mark them as active in that chat
     socket.on("join_errand_chat", (errandId) => {
       socket.join(errandId);
+      socket.currentErrandId = errandId;
+
+      if (socket.userId) {
+        if (!activeInChat.has(socket.userId)) {
+          activeInChat.set(socket.userId, new Set());
+        }
+        activeInChat.get(socket.userId).add(errandId);
+      }
     });
 
-    // Chat: user sends a message
+    // User leaves a chat screen
+    socket.on("leave_errand_chat", (errandId) => {
+      socket.leave(errandId);
+      if (socket.userId && activeInChat.has(socket.userId)) {
+        activeInChat.get(socket.userId).delete(errandId);
+      }
+    });
+
     socket.on("send_message", async (data) => {
       try {
         const newMessage = await ErrandChatModel.create({
@@ -35,21 +57,65 @@ function initSocket(server) {
           message: data.message,
         });
 
-        // 1. Emit message to the errand room (realtime chat for both users)
+        // Real-time message to everyone in the chat room
         io.to(data.errandId).emit("receive_message", newMessage);
 
-        // 2. Emit notification to the receiver (userId-based)
+        // Real-time notification badge to receiver's personal room
         io.to(data.receiverId).emit("new_message_notification", {
           errandId: data.errandId,
           message: data.message,
           senderId: data.senderId,
         });
+
+        // Push notification — only if receiver is NOT currently viewing this chat
+        const receiverIsInChat =
+          activeInChat.has(data.receiverId) &&
+          activeInChat.get(data.receiverId).has(data.errandId);
+
+        if (!receiverIsInChat) {
+          try {
+            const [sender, receiver] = await Promise.all([
+              UserModel.findById(data.senderId).select("firstName lastName"),
+              UserModel.findById(data.receiverId).select("pushToken"),
+            ]);
+
+            if (receiver?.pushToken && sender) {
+              await sendPushNotification(
+                receiver.pushToken,
+                TEMPLATES.NEW_MESSAGE(`${sender.firstName} ${sender.lastName}`),
+                {
+                  chatId: data.errandId,
+                  type: "new_message",
+                  senderId: data.senderId,
+                }
+              );
+            }
+          } catch (notifErr) {
+            console.error("Chat push notification error:", notifErr);
+          }
+        }
+
       } catch (err) {
         console.error("Error sending message:", err);
+        socket.emit("message_error", { message: "Failed to send message" });
       }
     });
 
-    socket.on("disconnect", () => {});
+    // Typing indicators
+    socket.on("typing", ({ errandId, senderId }) => {
+      socket.to(errandId).emit("user_typing", { senderId });
+    });
+
+    socket.on("stopped_typing", ({ errandId, senderId }) => {
+      socket.to(errandId).emit("user_stopped_typing", { senderId });
+    });
+
+    socket.on("disconnect", () => {
+      // Clean up active chat tracking when user disconnects
+      if (socket.userId) {
+        activeInChat.delete(socket.userId);
+      }
+    });
   });
 
   return io;
