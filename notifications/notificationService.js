@@ -13,9 +13,19 @@ const TEMPLATES = {
     body: `${erranzerName} has accepted your errand "${errandTitle}".`,
     channelId: "errands",
   }),
-  ERRAND_COMPLETED: (errandTitle) => ({
+  ERRAND_PRE_COMPLETED: (errandTitle, name) => ({
     title: "Errand Completed",
-    body: `"${errandTitle}" has been marked as completed. Your wallet will be credited shortly. `,
+    body: `"${errandTitle}" has been marked as completed by ${name}. Please confirm completion.`,
+    channelId: "errands",
+  }),
+  ERRAND_COMPLETED_ERRANZER: (errandTitle) => ({
+    title: "Errand Completed",
+    body: `"${errandTitle}" has been marked as completed. Your wallet will be credited soon.`,
+    channelId: "errands",
+  }),
+  ERRAND_COMPLETED_POSTER: (errandTitle) => ({
+    title: "Errand Completed",
+    body: `"${errandTitle}" has been marked as completed.`,
     channelId: "errands",
   }),
   ERRAND_APPLIED: (applicantName, errandTitle) => ({
@@ -42,6 +52,7 @@ const TEMPLATES = {
 
 // Core send function
 async function sendPushNotification(pushTokens, template, data = {}) {
+    console.log("Sending notification with template:", template);
   // pushTokens can be a single string or array
   const tokens = Array.isArray(pushTokens) ? pushTokens : [pushTokens];
 
@@ -67,6 +78,7 @@ async function sendPushNotification(pushTokens, template, data = {}) {
     try {
       const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
       tickets.push(...ticketChunk);
+      console.log("Tickets:", tickets);
     } catch (err) {
       console.error("Push notification error:", err);
     }
