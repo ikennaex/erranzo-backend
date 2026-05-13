@@ -1,4 +1,5 @@
-const router = require("express").Router();
+const express = require('express')
+const router = express.Router()
 const webhook = require("../webhooks/stripeWebhook");
 
 router.post("/stripe", express.raw({ type: "application/json" }), webhook.handleStripeWebhook);
