@@ -41,6 +41,18 @@ app.use("/expo-token", require("./routes/expoTokenRoute"));
 app.use("/admin", require("./routes/adminLoginRoute"));
 app.use("/admin", require("./routes/adminRoutes"));
 
+// stripe and wallet routes
+app.use("/api/stripe", require("./routes/stripeRoute"));
+app.use("/api/wallet", require("./routes/walletRoute"));
+app.use("/api/errand", require("./routes/errandRoutes"));
+
+app.use(
+  "/api/webhook",
+  express.raw({ type: "application/json" }),
+  require("./routes/stripeWebhookRoute")
+);
+
+
 app.get("/", (req, res) => res.send("Hello World")); 
 
 const server = http.createServer(app);

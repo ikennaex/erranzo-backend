@@ -15,6 +15,8 @@ const userSchema = new Schema(
     wallet: {},
     errandsCreated: {},
     errandsInvolved: {},
+    stripeCustomerId: { type: String },
+    stripeAccountId: { type: String },
     province: { type: String },
     country: { type: String, default: "Canada" },
     pushToken: { type: String },
