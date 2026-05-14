@@ -9,7 +9,10 @@ const {
   sendPushNotification,
   TEMPLATES,
 } = require("../notifications/notificationService");
+const WalletModel = require("../models/Wallet");
 
+
+// post errand has wallet debit with escrow and also a transaction 
 const postErrand = async (req, res) => {
   const {
     title,
@@ -23,6 +26,18 @@ const postErrand = async (req, res) => {
   } = req.body;
 
   try {
+    // balance check
+    const wallet = await WalletModel.findOne({
+      userId: req.user.id,
+    });
+
+    if (!wallet || wallet.balance < budget) {
+      return res.status(400).json({
+        message: "Insufficient wallet balance",
+      });
+    }
+
+    // create errand
     const newErrand = await ErrandModel.create({
       title,
       description,
@@ -35,20 +50,23 @@ const postErrand = async (req, res) => {
       poster_id: req.user.id,
     });
 
+    // notify erranzers
     const erranzers = await UserModel.find({
       role: "erranzer",
       pushToken: { $exists: true, $ne: null },
       _id: { $ne: req.user.id },
     }).select("pushToken");
 
-    console.log(`Found ${erranzers.length} erranzers to notify`);
-
     if (erranzers.length > 0) {
       const tokens = erranzers.map((e) => e.pushToken);
+
       await sendPushNotification(
         tokens,
         TEMPLATES.ERRAND_POSTED(newErrand.title),
-        { errandId: newErrand._id.toString(), type: "errand_posted" },
+        {
+          errandId: newErrand._id.toString(),
+          type: "errand_posted",
+        }
       );
     }
 
@@ -62,11 +80,15 @@ const postErrand = async (req, res) => {
       }`,
     });
 
-    res.status(200).json({ message: "Errand posted successfully", newErrand });
+    res.status(200).json({
+      message: "Errand posted successfully",
+      newErrand,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Failed to post errand", error: error.message });
+    res.status(500).json({
+      message: "Failed to post errand",
+      error: error.message,
+    });
   }
 };
 
@@ -189,26 +211,83 @@ const editErrand = async (req, res) => {
 };
 
 const assignErrand = async (req, res) => {
-  const { id } = req.params;
-  const erranzer_id = req.user.id;
+  const session = await mongoose.startSession();
 
   try {
-    const errand = await ErrandModel.findById(id);
+    session.startTransaction();
+
+    const { id } = req.params;
+    const erranzer_id = req.user.id;
+
+    // find errand
+    const errand = await ErrandModel.findById(id).session(session);
+
     if (!errand) {
-      return res.status(404).json({ message: "Errand not found" });
+      await session.abortTransaction();
+      session.endSession();
+
+      return res.status(404).json({
+        message: "Errand not found",
+      });
     }
-    // save to DB
+
+    // prevent double assignment
+    if (errand.erranzer_id) {
+      await session.abortTransaction();
+      session.endSession();
+
+      return res.status(400).json({
+        message: "Errand already assigned",
+      });
+    }
+
+    // poster wallet
+    const wallet = await WalletModel.findOne({
+      userId: errand.poster_id,
+    }).session(session);
+
+    // validate balance again
+    if (!wallet || wallet.balance < errand.budget) {
+      await session.abortTransaction();
+      session.endSession();
+
+      return res.status(400).json({
+        message: "Poster has insufficient wallet balance",
+      });
+    }
+
+    // HOLD FUNDS for escrow - debit from poster wallet and move to pending
+    wallet.balance -= errand.budget;
+    wallet.pending += errand.budget;
+
+    await wallet.save({ session });
+
+    // assign errand
     errand.erranzer_id = erranzer_id;
     errand.status = "in_progress";
 
+    await errand.save({ session });
 
-    await errand.save();
+    // commit transaction
+    await session.commitTransaction();
+    session.endSession();
 
+    // notifications AFTER successful transaction
     const posterUser = await UserModel.findById(errand.poster_id);
+
     const erranzerUser = await UserModel.findById(erranzer_id);
- 
-    if (!posterUser) return res.status(404).json({ error: "Poster not found" });
-    if (!erranzerUser) return res.status(404).json({ error: "Erranzer not found" });
+
+    if (!posterUser) {
+      return res.status(404).json({
+        error: "Poster not found",
+      });
+    }
+
+    if (!erranzerUser) {
+      return res.status(404).json({
+        error: "Erranzer not found",
+      });
+    }
 
     if (posterUser?.pushToken) {
       await sendPushNotification(
@@ -217,7 +296,10 @@ const assignErrand = async (req, res) => {
           `${erranzerUser.firstName} ${erranzerUser.lastName}`,
           errand.title
         ),
-        { errandId: errand._id.toString(), type: "errand_accepted" }
+        {
+          errandId: errand._id.toString(),
+          type: "errand_accepted",
+        }
       );
     }
 
@@ -234,97 +316,217 @@ const assignErrand = async (req, res) => {
       errand,
     });
   } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+
     console.error("Error assigning errand:", err);
-    res
-      .status(500)
-      .json({ message: "Failed to assign errand", error: err.message });
+
+    res.status(500).json({
+      message: "Failed to assign errand",
+      error: err.message,
+    });
   }
 };
 
 const markCompleted = async (req, res) => {
-  const { id } = req.params;
-  // id of whoever is making the request
-  const userId = req.user.id;
+  const session = await mongoose.startSession();
+
   try {
-    const errand = await ErrandModel.findById(id);
+    session.startTransaction();
+
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // find errand
+    const errand = await ErrandModel.findById(id).session(session);
+
     if (!errand) {
-      return res.status(404).json({ message: "Errand not found" });
+      await session.abortTransaction();
+      session.endSession();
+
+      return res.status(404).json({
+        message: "Errand not found",
+      });
     }
 
-    const isPoster = errand.poster_id.toString() === userId.toString();
-    const isErranzer = errand.erranzer_id.toString() === userId.toString();
+    // prevent duplicate completion payout
+    if (errand.status === "completed") {
+      await session.abortTransaction();
+      session.endSession();
 
-    if (errand.poster_id.toString() === userId.toString()) {
+      return res.status(400).json({
+        message: "Errand already completed",
+      });
+    }
+
+    const isPoster =
+      errand.poster_id.toString() === userId.toString();
+
+    const isErranzer =
+      errand.erranzer_id.toString() === userId.toString();
+
+    // authorization
+    if (!isPoster && !isErranzer) {
+      await session.abortTransaction();
+      session.endSession();
+
+      return res.status(403).json({
+        message: "User not authorized",
+      });
+    }
+
+    // mark completion
+    if (isPoster) {
       errand.posterCompleted = true;
-    } else if (errand.erranzer_id.toString() === userId.toString()) {
-      errand.erranzerCompleted = true;
-    } else {
-      return res.status(500).json({ message: "User not authorized" });
     }
 
-    if (isPoster) errand.posterCompleted = true;
-    if (isErranzer) errand.erranzerCompleted = true;
+    if (isErranzer) {
+      errand.erranzerCompleted = true;
+    }
 
-    if (errand.posterCompleted && errand.erranzerCompleted) {
+    // BOTH USERS COMPLETED
+    if (
+      errand.posterCompleted &&
+      errand.erranzerCompleted
+    ) {
+      // poster wallet
+      const posterWallet = await WalletModel.findOne({
+        userId: errand.poster_id,
+      }).session(session);
+
+      // erranzer wallet
+      const erranzerWallet = await WalletModel.findOne({
+        userId: errand.erranzer_id,
+      }).session(session);
+
+      if (!posterWallet || !erranzerWallet) {
+        await session.abortTransaction();
+        session.endSession();
+
+        return res.status(404).json({
+          message: "Wallet not found",
+        });
+      }
+
+      // remove escrow hold
+      posterWallet.pending -= errand.budget;
+
+      // platform fee example (10%) 
+      const platformFee = errand.budget * 0.1;
+
+      // erranzer payout
+      const payout = errand.budget - platformFee;
+
+      // credit erranzer
+      erranzerWallet.balance += payout;
+
+      // save wallets
+      await posterWallet.save({ session });
+      await erranzerWallet.save({ session });
+
+      // mark payment released
+      errand.paymentReleased = true;
+
+      // mark errand completed
       errand.status = "completed";
     }
 
-    await errand.save();
+    // save errand
+    await errand.save({ session });
 
+    // commit transaction
+    await session.commitTransaction();
+    session.endSession();
 
-    const posterUser = await UserModel.findById(errand.poster_id);
-    const erranzerUser = await UserModel.findById(errand.erranzer_id);
- 
-    if (errand.posterCompleted && errand.erranzerCompleted) {
- 
+    // users
+    const posterUser = await UserModel.findById(
+      errand.poster_id
+    );
+
+    const erranzerUser = await UserModel.findById(
+      errand.erranzer_id
+    );
+
+    // notifications
+    if (
+      errand.posterCompleted &&
+      errand.erranzerCompleted
+    ) {
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
-          TEMPLATES.ERRAND_COMPLETED_ERRANZER(errand.title),
-          { errandId: errand._id.toString(), type: "errand_completed" }
+          TEMPLATES.ERRAND_COMPLETED_ERRANZER(
+            errand.title
+          ),
+          {
+            errandId: errand._id.toString(),
+            type: "errand_completed",
+          }
         );
       }
- 
+
       if (posterUser?.pushToken) {
         await sendPushNotification(
           posterUser.pushToken,
-          TEMPLATES.ERRAND_COMPLETED_POSTER(errand.title),
-          { errandId: errand._id.toString(), type: "errand_completed" }
+          TEMPLATES.ERRAND_COMPLETED_POSTER(
+            errand.title
+          ),
+          {
+            errandId: errand._id.toString(),
+            type: "errand_completed",
+          }
         );
       }
- 
-    } else if (isPoster && !errand.erranzerCompleted) {
+    } else if (
+      isPoster &&
+      !errand.erranzerCompleted
+    ) {
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
           TEMPLATES.ERRAND_PRE_COMPLETED(
             errand.title,
-            `${posterUser.firstName} ${posterUser.lastName}` // who marked it
+            `${posterUser.firstName} ${posterUser.lastName}`
           ),
-          { errandId: errand._id.toString(), type: "errand_pre_completed" }
+          {
+            errandId: errand._id.toString(),
+            type: "errand_pre_completed",
+          }
         );
       }
- 
-    } else if (isErranzer && !errand.posterCompleted) {
+    } else if (
+      isErranzer &&
+      !errand.posterCompleted
+    ) {
       if (posterUser?.pushToken) {
         await sendPushNotification(
           posterUser.pushToken,
           TEMPLATES.ERRAND_PRE_COMPLETED(
             errand.title,
-            `${erranzerUser.firstName} ${erranzerUser.lastName}` // who marked it
+            `${erranzerUser.firstName} ${erranzerUser.lastName}`
           ),
-          { errandId: errand._id.toString(), type: "errand_pre_completed" }
+          {
+            errandId: errand._id.toString(),
+            type: "errand_pre_completed",
+          }
         );
       }
     }
-    res
-      .status(200)
-      .json({ message: "Marked as completed successfully", errand });
+
+    res.status(200).json({
+      message: "Marked as completed successfully",
+      errand,
+    });
   } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+
     console.error("Error Updating errand:", err);
-    res
-      .status(500)
-      .json({ message: "Failed to complete errand", error: err.message });
+
+    res.status(500).json({
+      message: "Failed to complete errand",
+      error: err.message,
+    });
   }
 };
 
