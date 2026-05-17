@@ -46,6 +46,9 @@ app.use("/api/stripe", require("./routes/stripeRoute"));
 app.use("/api/wallet", require("./routes/walletRoute"));
 app.use("/api/errand", require("./routes/errandRoutes"));
 
+// payout routes 
+app.use("/api/payout", require("./routes/payoutRoutes"));
+
 app.use(
   "/api/webhook",
   express.raw({ type: "application/json" }),

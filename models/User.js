@@ -17,6 +17,10 @@ const userSchema = new Schema(
     errandsInvolved: {},
     stripeCustomerId: { type: String },
     stripeAccountId: { type: String },
+    payoutsEnabled: {
+      type: Boolean,
+      default: false,
+    },
     province: { type: String },
     country: { type: String, default: "Canada" },
     pushToken: { type: String },
@@ -29,7 +33,7 @@ const userSchema = new Schema(
       type: Date,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const UserModel = mongoose.model("User", userSchema);
