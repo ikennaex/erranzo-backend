@@ -28,7 +28,6 @@ const createConnectAccount = async (req, res) => {
 
     // save stripe account ID
     user.stripeAccountId = account.id;
-    user.payoutsEnabled = true;
 
     await user.save();
 
