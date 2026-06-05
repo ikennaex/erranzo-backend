@@ -2,6 +2,7 @@ const { Server } = require("socket.io");
 const ErrandChatModel = require("../models/ErrandChat");
 const UserModel = require("../models/User");
 const { sendPushNotification, TEMPLATES } = require("../notifications/notificationService");
+const { registerCallHandlers, handleCallDisconnect } = require("../services/callSocketHandler");
 
 let io;
 
@@ -26,6 +27,9 @@ function initSocket(server) {
       socket.join(userId);
       socket.userId = userId;
     });
+
+    // Register call handlers
+    registerCallHandlers(io, socket);
 
     // User opens a chat — mark them as active in that chat
     socket.on("join_errand_chat", (errandId) => {
@@ -115,6 +119,9 @@ function initSocket(server) {
       if (socket.userId) {
         activeInChat.delete(socket.userId);
       }
+      
+      // Clean up active call tracking
+      handleCallDisconnect(io, socket);
     });
   });
 
