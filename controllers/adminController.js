@@ -57,6 +57,73 @@ const getErranzerDetails = async (req, res) => {
   }
 }
 
+const getUnverifiedErranzers = async (req, res) => {
+  try {
+    const unverifiedErranzers = await UserModel.find({ role: "erranzer", status: "pending" });
+    res.status(200).json({ unverifiedErranzers });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error getting unverified erranzers" });
+  }
+}
+
+const approveorRejectErranzer = async (req, res) => {
+  const { id } = req.params;
+  const {status} = req.body;
+
+  try {
+    const erranzer = await UserModel.findById(id);
+    if (!erranzer) {
+      return res.status(404).json({ message: "Erranzer not found" });
+    }
+
+    if (status === "approved") {
+      erranzer.applicationStatus = "approved";
+      erranzer.kycStatus = "approved";
+      erranzer.role = "erranzer";
+
+      res.status(200).json({ message: "Application approved" });
+    }
+    else if (status === "rejected") {
+      erranzer.applicationStatus = "rejected";
+      erranzer.kycStatus = "rejected";
+      res.status(200).json({ message: "Application rejected" });
+    }
+
+    await erranzer.save();
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error approving erranzer" });
+  }
+}
+
+const userManagemnent = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    const erranzer = await UserModel.findById(id);
+    if (!erranzer) {
+      return res.status(404).json({ message: "Erranzer not found" });
+    }
+
+    if (status === "suspended") {
+      erranzer.status = "suspended";
+      res.status(200).json({ message: "User suspended" });
+    }
+
+    else if (status === "active") {
+      erranzer.status = "active";
+      res.status(200).json({ message: "User activated" });
+    }
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error managing user" });
+  }
+}
 
 
-module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers, getUserDetails, getErranzerDetails };
+
+module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers, getUserDetails, getErranzerDetails, getUnverifiedErranzers, approveorRejectErranzer, userManagemnent };

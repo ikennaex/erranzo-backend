@@ -25,6 +25,9 @@ const userSchema = new Schema(
     country: { type: String, default: "Canada" },
     pushToken: { type: String },
     isVerified: { type: Boolean, default: false },
+    applicationStatus: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    status: { type: String, enum: ["active", "suspended", "verified"], default: "active" },
+    kycStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
     refreshToken: { type: String },
     resetPasswordToken: {
       type: String,
