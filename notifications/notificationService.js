@@ -1,5 +1,14 @@
-const { Expo } = require("expo-server-sdk");
-const expo = new Expo();
+let Expo;
+let expo;
+
+async function getExpo() {
+  if (!expo) {
+    const sdk = await import("expo-server-sdk");
+    Expo = sdk.Expo;
+    expo = new Expo();
+  }
+  return { Expo, expo };
+}
 
 // Predefined notification templates
 const TEMPLATES = {
@@ -52,7 +61,8 @@ const TEMPLATES = {
 
 // Core send function
 async function sendPushNotification(pushTokens, template, data = {}) {
-    console.log("Sending notification with template:", template);
+  const { Expo, expo } = await getExpo();
+  console.log("Sending notification with template:", template);
   // pushTokens can be a single string or array
   const tokens = Array.isArray(pushTokens) ? pushTokens : [pushTokens];
 
@@ -89,6 +99,7 @@ async function sendPushNotification(pushTokens, template, data = {}) {
 
 // Custom promotional notification
 async function sendPromotionalNotification(pushTokens, title, body, data = {}) {
+  const { Expo, expo } = await getExpo();
   const tokens = Array.isArray(pushTokens) ? pushTokens : [pushTokens];
 
   const messages = tokens
