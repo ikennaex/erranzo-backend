@@ -36,7 +36,7 @@ const getTotalErranzers = async (req, res) => {
 };
 
 // get users details 
-const getUserDetails = async (req, res) => {
+const getUsers = async (req, res) => {
   try {
     const users = await UserModel.find({ role: "user" });
     res.status(200).json({ users });
@@ -46,11 +46,39 @@ const getUserDetails = async (req, res) => {
   }
 }
 
+const getUserDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await UserModel.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error getting user details" });
+  }
+}
+
 // get users details 
+const getErranzers = async (req, res) => {
+  try {
+    const erranzers = await UserModel.find({ role: "erranzer", status: "active" });
+    res.status(200).json({ erranzers });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error getting erranzer details" });
+  }
+}
+
 const getErranzerDetails = async (req, res) => {
   try {
-    const erranzers = await UserModel.find({ role: "erranzer" });
-    res.status(200).json({ erranzers });
+    const { id } = req.params;
+    const erranzer = await UserModel.findById(id);
+    if (!erranzer) {
+      return res.status(404).json({ message: "Erranzer not found" });
+    }
+    res.status(200).json({ erranzer });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error getting erranzer details" });
@@ -253,4 +281,4 @@ const getAnalytics = async (req, res) => {
 
 
 
-module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers, getUserDetails, getErranzerDetails, getUnverifiedErranzers, approveorRejectErranzer, userManagemnent, getAnalytics };
+module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers, getUsers, getUserDetails, getErranzers, getErranzerDetails, getUnverifiedErranzers, approveorRejectErranzer, userManagemnent, getAnalytics };
