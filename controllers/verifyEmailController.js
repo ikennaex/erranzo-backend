@@ -1,39 +1,67 @@
-const jwt = require("jsonwebtoken");
 const UserModel = require("../models/User");
 
-const verifyEmail = async (req, res) => {
+const verifyOtp = async (req, res) => {
   try {
-    const { token } = req.params;
+    const { identifier, otp } = req.body;
 
-    // verify JWT
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log(decoded)
+    const user = await UserModel.findOne({
+      $or: [
+        { email: identifier },
+        { phoneNumber: identifier },
+        { username: identifier },
+      ],
+    });
 
-    // find user
-    const user = await UserModel.findById(decoded.userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
 
-    // check if already verified
-    if (user.isVerified) {
-      return res.status(200).json({ message: "Email already verified" });
+    // check already verified
+    if (user.isEmailVerified) { 
+      return res.status(200).json({
+        message: "Account already verified",
+      });
     }
 
-    // mark as verified
-    user.isVerified = true;
+    // check OTP match
+    if (!user.emailVerificationCode || user.emailVerificationCode !== otp) {
+      return res.status(400).json({
+        message: "Invalid or expired OTP.",
+      });
+    }
+
+    // check expiry (10 minutes rule)
+    const isExpired =
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires < new Date();
+
+    if (isExpired) {
+      return res.status(400).json({
+        message: "Invalid or expired OTP.",
+      });
+    }
+
+    // mark verified
+    user.isEmailVerified = true;
+
+    // clear OTP fields
+    user.emailVerificationCode = null;
+    user.emailVerificationExpires = null;
+
     await user.save();
 
-    return res.status(200).json({ message: "Email verified successfully!" });
+    return res.status(200).json({
+      message: "Account verified successfully.",
+    });
   } catch (err) {
-    console.error("Error verifying email:", err);
+    console.error("OTP verification error:", err);
 
-    if (err.name === "TokenExpiredError") {
-      return res.status(400).json({ message: "Verification link expired. Please request a new one." });
-    }
-
-    return res.status(400).json({ message: "Invalid or malformed token" });
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
-module.exports = { verifyEmail };
+module.exports = { verifyOtp };

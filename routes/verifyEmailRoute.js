@@ -1,10 +1,10 @@
 const express = require('express')
-const { verifyEmail } = require('../controllers/verifyEmailController')
+const { verifyEmail, verifyOtp } = require('../controllers/verifyEmailController')
 const { resendVerificationEmail } = require('../controllers/resendVerificationEmail')
 const router = express.Router()
 
 
-router.get('/verify-email/:token', verifyEmail)
-router.post('/resend-verification', resendVerificationEmail)
+router.post('/verify-otp', verifyOtp)
+router.post('/resend-otp', resendVerificationEmail)
 
 module.exports = router

@@ -1,14 +1,19 @@
 const sendVerificationMail = require("../utils/emails/sendVerificationMail");
-const jwt = require("jsonwebtoken");
 const UserModel = require("../models/User");
 const bcrypt = require("bcrypt");
 
 const register = async (req, res) => {
   try {
-    const { username, email, phoneNumber, password, firstName, lastName, province } =
-      req.body; 
+    const {
+      username,
+      email,
+      phoneNumber,
+      password,
+      firstName,
+      lastName,
+      province,
+    } = req.body;
 
-    // check if username or email or phone number already exists
     const existingUser = await UserModel.findOne({
       $or: [{ username }, { email }, { phoneNumber }],
     });
@@ -25,8 +30,11 @@ const register = async (req, res) => {
       }
     }
 
-    // password hash
     const hashPass = await bcrypt.hash(password, 10);
+
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
 
     const userDoc = await UserModel.create({
       username,
@@ -35,27 +43,27 @@ const register = async (req, res) => {
       password: hashPass,
       firstName,
       lastName,
-      province
+      province,
+      emailVerificationCode: verificationCode,
+      emailVerificationExpires: new Date(Date.now() + 10 * 60 * 1000),
+      isEmailVerified: false,
     });
 
-    // create JWT Token
-    const token = jwt.sign(
-      { userId: userDoc._id, email: userDoc.email },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "3h",
-      }
-    );
-
-    // verify URL
-    const verifyURL = `http://localhost:4000/auth/verify-email/${token}`;
-
-    // send verification email
-    await sendVerificationMail({email, verifyURL});
+    // try sending email (but don't fail registration if it fails)
+    try {
+      await sendVerificationMail({
+        email: userDoc.email,
+        verificationCode,
+      });
+    } catch (err) {
+      console.error("Email sending failed:", err.message);
+      // DO NOT delete user
+      // resend endpoint will handle this
+    }
 
     return res.status(201).json({
       message:
-        "User registered successfully check your email to verify your account",
+        "Check your email for the verification code. If you don't see it, you can request a resend.",
     });
   } catch (error) {
     console.error("Error during registration:", error);

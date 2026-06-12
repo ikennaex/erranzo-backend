@@ -24,7 +24,16 @@ const userSchema = new Schema(
     province: { type: String },
     country: { type: String, default: "Canada" },
     pushToken: { type: String },
-    isVerified: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationCode: {
+      type: String,
+      default: null,
+    },
+
+    emailVerificationExpires: {
+      type: Date,
+      default: null,
+    },
     applicationStatus: {
       type: String,
       enum: ["pending", "approved", "rejected"],

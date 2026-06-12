@@ -1,6 +1,6 @@
 const resend = require("../../config/resend");
 
-async function sendVerificationMail({ email, verifyURL }) {
+async function sendVerificationMail({ email, verificationCode }) {
   try {
     console.log("Sending verification email to:", email);
 
@@ -11,7 +11,7 @@ async function sendVerificationMail({ email, verifyURL }) {
       html: `
         <div style="background-color:#f4f6f8;padding:40px 0;font-family:Arial,Helvetica,sans-serif;">
           <table align="center" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
-            
+
             <tr>
               <td style="padding:30px;text-align:center;background:#111827;color:#ffffff;">
                 <h1 style="margin:0;font-size:24px;">Erranzo</h1>
@@ -27,24 +27,38 @@ async function sendVerificationMail({ email, verifyURL }) {
                 </p>
 
                 <p style="color:#4b5563;font-size:15px;line-height:1.6;">
-                  Thank you for creating an account with Erranzo. Please verify your email address by clicking the button below.
+                  Thank you for creating an account with Erranzo. To complete your registration, please use the verification code below.
                 </p>
 
-                <div style="margin-top:30px;text-align:center;">
-                  <a href="${verifyURL}" 
-                     style="display:inline-block;padding:12px 24px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;">
-                     Verify Email
-                  </a>
+                <div style="margin:30px 0;text-align:center;">
+                  <div
+                    style="
+                      display:inline-block;
+                      background:#f3f4f6;
+                      border:1px solid #e5e7eb;
+                      border-radius:8px;
+                      padding:16px 32px;
+                      font-size:32px;
+                      font-weight:700;
+                      letter-spacing:8px;
+                      color:#111827;
+                    "
+                  >
+                    ${verificationCode}
+                  </div>
                 </div>
 
-                <p style="margin-top:30px;color:#6b7280;font-size:13px;line-height:1.6;">
-                  If the button above does not work, copy and paste this link into your browser:
+                <p style="color:#4b5563;font-size:15px;line-height:1.6;">
+                  Enter this code in the app to verify your email address.
                 </p>
 
-                <p style="word-break:break-all;color:#2563eb;font-size:13px;">
-                  ${verifyURL}
+                <p style="margin-top:20px;color:#6b7280;font-size:13px;line-height:1.6;">
+                  This verification code will expire in 10 minutes.
                 </p>
 
+                <p style="margin-top:20px;color:#6b7280;font-size:13px;line-height:1.6;">
+                  If you did not create an account with Erranzo, you can safely ignore this email.
+                </p>
               </td>
             </tr>
 
