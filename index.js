@@ -46,6 +46,9 @@ app.use("/api/stripe", require("./routes/stripeRoute"));
 app.use("/api/wallet", require("./routes/walletRoute"));
 app.use("/api/errand", require("./routes/errandRoutes"));
 
+// review routes
+app.use("/reviews", require("./routes/reviewRoutes"));
+
 // payout routes 
 app.use("/api/payout", require("./routes/payoutRoutes"));
 

@@ -7,7 +7,17 @@ const errandSchema = new Schema({
   budget: { type: String, required: true },
   deadline: { type: String, required: true },
   category: { type: String, enum: ["delivery", "handyman", "groceries", "transport", "home-cleaning", "errand-runner", "caregiver", "other"], required: true },
-  location: { type: String, required: true },
+  location: {
+  type: {
+    type: String,
+    enum: ["Point"],
+    required: true
+  },
+  coordinates: {
+    type: [Number], 
+    required: true
+  }
+},
   status: { type: String, enum: ["open", "in_progress", "completed"], default: "open", required: true },
   priority: { type: String, enum: ["normal", "urgent"], default: "normal", required: true },
   paymentStatus: { type: String, enum: ["held", "released", "refunded"], default: "held" },
@@ -16,6 +26,8 @@ const errandSchema = new Schema({
   posterCompleted: { type: Boolean, default: false },
   erranzerCompleted: { type: Boolean, default: false },
 }, { timestamps: true }); 
+
+errandSchema.index({ location: "2dsphere" });
 
 const ErrandModel = mongoose.model("Errand", errandSchema);
 

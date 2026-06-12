@@ -11,8 +11,7 @@ const {
 } = require("../notifications/notificationService");
 const WalletModel = require("../models/Wallet");
 
-
-// post errand has wallet debit with escrow and also a transaction 
+// post errand has wallet debit with escrow and also a transaction
 const postErrand = async (req, res) => {
   const {
     title,
@@ -66,7 +65,7 @@ const postErrand = async (req, res) => {
         {
           errandId: newErrand._id.toString(),
           type: "errand_posted",
-        }
+        },
       );
     }
 
@@ -94,14 +93,46 @@ const postErrand = async (req, res) => {
 
 const getAllErrands = async (req, res) => {
   try {
-    const errands = await ErrandModel.find();
-    res
-      .status(200)
-      .json({ message: "All errands fetched successfully", errands });
+    const { search, lat, lng, radius = 25 } = req.query;
+
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Geospatial filter
+    const hasLocationFilter = lat && lng;
+
+    if (hasLocationFilter) {
+      const radiusInMeters = Number(radius) * 1000;
+
+      query.location = {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [Number(lng), Number(lat)],
+          },
+          $maxDistance: radiusInMeters,
+        },
+      };
+    }
+
+    const errands = await ErrandModel.find(query);
+
+    res.status(200).json({
+      message: "All errands fetched successfully",
+      count: errands.length,
+      errands,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Failed to fetch errands", error: error.message });
+    res.status(500).json({
+      message: "Failed to fetch errands",
+      error: error.message,
+    });
   }
 };
 
@@ -294,12 +325,12 @@ const assignErrand = async (req, res) => {
         posterUser.pushToken,
         TEMPLATES.ERRAND_ACCEPTED(
           `${erranzerUser.firstName} ${erranzerUser.lastName}`,
-          errand.title
+          errand.title,
         ),
         {
           errandId: errand._id.toString(),
           type: "errand_accepted",
-        }
+        },
       );
     }
 
@@ -349,7 +380,7 @@ const markCompleted = async (req, res) => {
       });
     }
 
-    // prevent duplicate completion payout
+    // prevent duplicate completion e
     if (errand.status === "completed") {
       await session.abortTransaction();
       session.endSession();
@@ -359,11 +390,9 @@ const markCompleted = async (req, res) => {
       });
     }
 
-    const isPoster =
-      errand.poster_id.toString() === userId.toString();
+    const isPoster = errand.poster_id.toString() === userId.toString();
 
-    const isErranzer =
-      errand.erranzer_id.toString() === userId.toString();
+    const isErranzer = errand.erranzer_id.toString() === userId.toString();
 
     // authorization
     if (!isPoster && !isErranzer) {
@@ -385,10 +414,7 @@ const markCompleted = async (req, res) => {
     }
 
     // BOTH USERS COMPLETED
-    if (
-      errand.posterCompleted &&
-      errand.erranzerCompleted
-    ) {
+    if (errand.posterCompleted && errand.erranzerCompleted) {
       // poster wallet
       const posterWallet = await WalletModel.findOne({
         userId: errand.poster_id,
@@ -411,7 +437,7 @@ const markCompleted = async (req, res) => {
       // remove escrow hold
       posterWallet.pending -= errand.budget;
 
-      // platform fee example (10%) 
+      // platform fee example (10%)
       const platformFee = errand.budget * 0.1;
 
       // erranzer payout
@@ -439,76 +465,59 @@ const markCompleted = async (req, res) => {
     session.endSession();
 
     // users
-    const posterUser = await UserModel.findById(
-      errand.poster_id
-    );
+    const posterUser = await UserModel.findById(errand.poster_id);
 
-    const erranzerUser = await UserModel.findById(
-      errand.erranzer_id
-    );
+    const erranzerUser = await UserModel.findById(errand.erranzer_id);
 
     // notifications
-    if (
-      errand.posterCompleted &&
-      errand.erranzerCompleted
-    ) {
+    if (errand.posterCompleted && errand.erranzerCompleted) {
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
-          TEMPLATES.ERRAND_COMPLETED_ERRANZER(
-            errand.title
-          ),
+          TEMPLATES.ERRAND_COMPLETED_ERRANZER(errand.title),
           {
             errandId: errand._id.toString(),
             type: "errand_completed",
-          }
+          },
         );
       }
 
       if (posterUser?.pushToken) {
         await sendPushNotification(
           posterUser.pushToken,
-          TEMPLATES.ERRAND_COMPLETED_POSTER(
-            errand.title
-          ),
+          TEMPLATES.ERRAND_COMPLETED_POSTER(errand.title),
           {
             errandId: errand._id.toString(),
             type: "errand_completed",
-          }
+          },
         );
       }
-    } else if (
-      isPoster &&
-      !errand.erranzerCompleted
-    ) {
+    } else if (isPoster && !errand.erranzerCompleted) {
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
           TEMPLATES.ERRAND_PRE_COMPLETED(
             errand.title,
-            `${posterUser.firstName} ${posterUser.lastName}`
+            `${posterUser.firstName} ${posterUser.lastName}`,
           ),
           {
             errandId: errand._id.toString(),
             type: "errand_pre_completed",
-          }
+          },
         );
       }
-    } else if (
-      isErranzer &&
-      !errand.posterCompleted
-    ) {
+    } else if (isErranzer && !errand.posterCompleted) {
       if (posterUser?.pushToken) {
         await sendPushNotification(
           posterUser.pushToken,
           TEMPLATES.ERRAND_PRE_COMPLETED(
             errand.title,
-            `${erranzerUser.firstName} ${erranzerUser.lastName}`
+            `${erranzerUser.firstName} ${erranzerUser.lastName}`,
           ),
           {
             errandId: errand._id.toString(),
             type: "errand_pre_completed",
-          }
+          },
         );
       }
     }

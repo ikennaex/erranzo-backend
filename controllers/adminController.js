@@ -124,6 +124,133 @@ const userManagemnent = async (req, res) => {
   }
 }
 
+const getAnalytics = async (req, res) => {
+  try {
+    const { period = "week" } = req.query;
+
+    // Calc date range
+    const now = new Date();
+    let startDate = new Date();
+
+    if (period === "day") {
+      startDate.setDate(now.getDate() - 1);
+    } else if (period === "week") {
+      startDate.setDate(now.getDate() - 7);
+    } else if (period === "month") {
+      startDate.setMonth(now.getMonth() - 1);
+    }
 
 
-module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers, getUserDetails, getErranzerDetails, getUnverifiedErranzers, approveorRejectErranzer, userManagemnent };
+    // NEW USERS (grouped by day)
+    const newUsers = await UserModel.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+      {
+        $project: {
+          date: "$_id",
+          count: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    // Errand volume
+    const errandVolume = await ErrandModel.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+      {
+        $project: {
+          date: "$_id",
+          count: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    // STATUS BREAKDOWN
+    const statusAgg = await ErrandModel.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const statusBreakdown = {
+      open: 0,
+      in_progress: 0,
+      completed: 0,
+    };
+
+    statusAgg.forEach((item) => {
+      statusBreakdown[item._id] = item.count;
+    });
+
+    // ang completion time
+
+    const completedErrands = await ErrandModel.find({
+      status: "completed",
+      updatedAt: { $exists: true },
+    });
+
+    let totalHours = 0;
+
+    completedErrands.forEach((errand) => {
+      const diff =
+        new Date(errand.updatedAt) - new Date(errand.createdAt);
+
+      totalHours += diff / (1000 * 60 * 60);
+    });
+
+    const avgCompletionTimeHours =
+      completedErrands.length > 0
+        ? totalHours / completedErrands.length
+        : 0;
+
+
+    res.status(200).json({
+      newUsers,
+      errandVolume,
+      avgCompletionTimeHours: Number(avgCompletionTimeHours.toFixed(2)),
+      statusBreakdown,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch analytics",
+      error: error.message,
+    });
+  }
+};
+
+
+
+module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers, getUserDetails, getErranzerDetails, getUnverifiedErranzers, approveorRejectErranzer, userManagemnent, getAnalytics };
