@@ -20,6 +20,8 @@ const postErrand = async (req, res) => {
     deadline,
     category,
     location,
+    coordinates,
+    address,
     status,
     priority,
   } = req.body;
@@ -44,6 +46,8 @@ const postErrand = async (req, res) => {
       deadline,
       category,
       location,
+      coordinates,
+      address,
       status,
       priority,
       poster_id: req.user.id,

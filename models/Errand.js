@@ -18,6 +18,7 @@ const errandSchema = new Schema({
     required: true
   }
 },
+address: { type: String, required: true },
   status: { type: String, enum: ["open", "in_progress", "completed"], default: "open", required: true },
   priority: { type: String, enum: ["normal", "urgent"], default: "normal", required: true },
   paymentStatus: { type: String, enum: ["held", "released", "refunded"], default: "held" },
