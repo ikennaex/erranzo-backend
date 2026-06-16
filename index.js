@@ -53,6 +53,9 @@ app.use("/reviews", require("./routes/reviewRoutes"));
 // payout routes 
 app.use("/api/payout", require("./routes/payoutRoutes"));
 
+// disputes 
+app.use("/", require("./routes/disputeRoute"));
+
 app.use(
   "/api/webhook",
   express.raw({ type: "application/json" }),

@@ -227,4 +227,4 @@ const resolveDispute = async (req, res) => {
 
 
 
-module.exports = { createDispute, getDisputes };
+module.exports = { createDispute, getDisputes, resolveDispute };
