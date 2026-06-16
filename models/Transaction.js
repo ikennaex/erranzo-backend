@@ -17,6 +17,7 @@ const transactionSchema = new Schema(
         "escrow_hold",
         "escrow_release",
         "earning",
+        "refund",
       ],
       required: true,
     },
@@ -33,11 +34,11 @@ const transactionSchema = new Schema(
 
     stripePaymentIntentId: { type: String },
 
-    reference: { type: String }, 
+    reference: { type: String },
 
-    metadata: { type: Object }, 
+    metadata: { type: Object },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const TransactionModel = mongoose.model("Transaction", transactionSchema);
