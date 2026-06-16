@@ -56,6 +56,10 @@ app.use("/api/payout", require("./routes/payoutRoutes"));
 // disputes 
 app.use("/", require("./routes/disputeRoute"));
 
+// erranzer application 
+app.use("/erranzer", require("./routes/erranzerApplicationRoute"));
+
+
 app.use(
   "/api/webhook",
   express.raw({ type: "application/json" }),
