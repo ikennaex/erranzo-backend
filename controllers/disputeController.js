@@ -3,7 +3,6 @@ const ErrandModel = require("../models/Errand");
 const TransactionModel = require("../models/Transaction");
 const WalletModel = require("../models/Wallet");
 
-
 const createDispute = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -51,8 +50,7 @@ const createDispute = async (req, res) => {
     await errand.save();
 
     return res.status(201).json({
-      message:
-        "Dispute raised successfully. Our team will review it shortly.",
+      message: "Dispute raised successfully. Our team will review it shortly.",
     });
   } catch (error) {
     return res.status(500).json({
@@ -91,55 +89,40 @@ const resolveDispute = async (req, res) => {
     const { id } = req.params;
     const { resolution } = req.body;
 
-
-    const dispute = await DisputeModel.findById(id)
-      .populate("errandId");
-
+    const dispute = await DisputeModel.findById(id).populate("errandId");
 
     if (!dispute) {
       return res.status(404).json({
-        message: "Dispute not found"
+        message: "Dispute not found",
       });
     }
-
 
     if (dispute.status === "resolved") {
       return res.status(400).json({
-        message: "Already resolved"
+        message: "Already resolved",
       });
     }
 
-
-    const errand = await ErrandModel.findById(
-      dispute.errandId._id
-    );
-
+    const errand = await ErrandModel.findById(dispute.errandId._id);
 
     const amount = Number(errand.budget);
 
-
     // RELEASE MONEY TO ERRANZER
     if (resolution === "release") {
-
-
       const wallet = await WalletModel.findOne({
-        userId: errand.erranzer_id
+        userId: errand.erranzer_id,
       });
-
 
       if (!wallet) {
         return res.status(404).json({
-          message: "Erranzer wallet not found"
+          message: "Erranzer wallet not found",
         });
       }
-
 
       wallet.balance += amount;
       wallet.totalEarned += amount;
 
-
       await wallet.save();
-
 
       await TransactionModel.create({
         userId: errand.erranzer_id,
@@ -149,36 +132,26 @@ const resolveDispute = async (req, res) => {
         status: "completed",
         metadata: {
           errandId: errand._id,
-          disputeId: dispute._id
-        }
+          disputeId: dispute._id,
+        },
       });
-
     }
-
-
 
     // REFUND TO POSTER WALLET
     if (resolution === "refund") {
-
-
       const wallet = await WalletModel.findOne({
-        userId: errand.poster_id
+        userId: errand.poster_id,
       });
-
 
       if (!wallet) {
         return res.status(404).json({
-          message: "Poster wallet not found"
+          message: "Poster wallet not found",
         });
       }
 
-
       wallet.balance += amount;
 
-
       await wallet.save();
-
-
 
       await TransactionModel.create({
         userId: errand.poster_id,
@@ -189,42 +162,31 @@ const resolveDispute = async (req, res) => {
         metadata: {
           errandId: errand._id,
           disputeId: dispute._id,
-          reason: "dispute_refund"
-        }
+          reason: "dispute_refund",
+        },
       });
-
     }
-
-
 
     dispute.status = "resolved";
     await dispute.save();
 
-
     errand.disputeStatus = "resolved";
     await errand.save();
-
-
 
     return res.status(200).json({
       message:
         resolution === "release"
           ? "Funds added to erranzer wallet"
-          : "Funds refunded to poster wallet"
+          : "Funds refunded to poster wallet",
     });
-
-
-  } catch(error) {
+  } catch (error) {
+    console.log("Resolve dispute error:", error);
 
     return res.status(500).json({
       message: "Server error",
-      error: error.message
+      error: error.message,
     });
-
   }
 };
-
-
-
 
 module.exports = { createDispute, getDisputes, resolveDispute };
