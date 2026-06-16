@@ -18,7 +18,7 @@ const adminLogin = async (req, res) => {
     const accessToken = jwt.sign(
       { id: adminDoc._id, email: adminDoc.email, userType: "Admin" }, // userType added to payload
       process.env.JWT_ACCESS_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "1h" }
     );
 
     const refreshToken = jwt.sign(
