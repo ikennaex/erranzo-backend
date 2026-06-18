@@ -18,7 +18,9 @@ app.use(
       "http://localhost:5173",
       "http://localhost:5174",
       "https://erranzo.onrender.com",
-      "https://erranzo.vercel.app"
+      "https://erranzo.vercel.app",
+      "https://erranzo.com",
+      "https://www.erranzo.com",
     ],
     credentials: true,
   })
