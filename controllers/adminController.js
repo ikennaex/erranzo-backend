@@ -109,36 +109,65 @@ const getUnverifiedErranzers = async (req, res) => {
   }
 };
 
+const UserModel = require("../models/User");
+const ErranzerApplicationModel = require("../models/ErranzerApplication");
+
 const approveorRejectErranzer = async (req, res) => {
-  const { id } = req.params;
-  const {status} = req.body;
+  const { id } = req.params; // application id
+  const { status } = req.body;
 
   try {
-    const erranzer = await UserModel.findById(id);
-    if (!erranzer) {
-      return res.status(404).json({ message: "Erranzer not found" });
+    const application = await ErranzerApplicationModel.findById(id);
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Application not found",
+      });
+    }
+
+    const user = await UserModel.findById(application.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
 
     if (status === "approved") {
-      erranzer.applicationStatus = "approved";
-      erranzer.kycStatus = "approved";
-      erranzer.role = "erranzer";
+      application.status = "approved";
 
-      res.status(200).json({ message: "Application approved" });
-    }
-    else if (status === "rejected") {
-      erranzer.applicationStatus = "rejected";
-      erranzer.kycStatus = "rejected";
-      res.status(200).json({ message: "Application rejected" });
+      user.applicationStatus = "approved";
+      user.kycStatus = "approved";
+      user.role = "erranzer";
     }
 
-    await erranzer.save();
+    if (status === "rejected") {
+      application.status = "rejected";
+
+      user.applicationStatus = "rejected";
+      user.kycStatus = "rejected";
+    }
+
+    await application.save();
+    await user.save();
+
+    return res.status(200).json({
+      message:
+        status === "approved"
+          ? "Application approved"
+          : "Application rejected",
+    });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error approving erranzer" });
+    return res.status(500).json({
+      message: "Error processing erranzer application",
+      error: err.message,
+    });
   }
-}
+};
+
+module.exports = { approveorRejectErranzer };
 
 const userManagemnent = async (req, res) => {
   const { id } = req.params;
