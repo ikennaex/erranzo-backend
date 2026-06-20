@@ -1,4 +1,5 @@
 const ErrandModel = require("../models/Errand");
+const ErranzerApplicationModel = require("../models/ErranzerApplication");
 const UserModel = require("../models/User");
 
 const adminGetAllErrands = async (req, res) => {
@@ -85,16 +86,28 @@ const getErranzerDetails = async (req, res) => {
   }
 }
 
+
 const getUnverifiedErranzers = async (req, res) => {
   try {
-    const unverifiedErranzers = await UserModel.find({ role: "erranzer", status: "pending" });
+    const applications = await ErranzerApplicationModel.find({
+      status: "pending",
+    }).populate(
+      "userId",
+      "username email firstName lastName phoneNumber kycStatus role"
+    );
 
-    res.status(200).json({ unverifiedErranzers });
+    return res.status(200).json({
+      applications,
+    });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error getting unverified erranzers" });
+    return res.status(500).json({
+      message: "Error getting unverified erranzers",
+      error: err.message,
+    });
   }
-}
+};
 
 const approveorRejectErranzer = async (req, res) => {
   const { id } = req.params;
