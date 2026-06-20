@@ -1,6 +1,6 @@
 const ErranzerApplication = require("../models/ErranzerApplication");
 const User = require("../models/User");
-const {uploadToCloudinary} = require("../utils/cloudinary");
+const uploadToCloudinary = require("../utils/cloudinary");
 
 const applyErranzer = async (req, res) => {
   try {
