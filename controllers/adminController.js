@@ -88,6 +88,7 @@ const getErranzerDetails = async (req, res) => {
 const getUnverifiedErranzers = async (req, res) => {
   try {
     const unverifiedErranzers = await UserModel.find({ role: "erranzer", status: "pending" });
+
     res.status(200).json({ unverifiedErranzers });
   } catch (err) {
     console.error(err);
