@@ -12,4 +12,4 @@ const uploadToCloudinary = async (fileBuffer) => {
   });
 };
 
-module.exports = uploadToCloudinary;
+module.exports = {uploadToCloudinary};
