@@ -19,7 +19,12 @@ app.use(
       "http://localhost:5174",
       "https://erranzo.onrender.com",
       "https://erranzo.vercel.app",
+<<<<<<< HEAD
       "https://erranzo.ca"
+=======
+      "https://erranzo.com",
+      "https://www.erranzo.com",
+>>>>>>> 03b6f6f7cac461d6dd437db9411056cac0a2e391
     ],
     credentials: true,
   })
