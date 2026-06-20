@@ -109,8 +109,6 @@ const getUnverifiedErranzers = async (req, res) => {
   }
 };
 
-const UserModel = require("../models/User");
-const ErranzerApplicationModel = require("../models/ErranzerApplication");
 
 const approveorRejectErranzer = async (req, res) => {
   const { id } = req.params; // application id
@@ -167,7 +165,6 @@ const approveorRejectErranzer = async (req, res) => {
   }
 };
 
-module.exports = { approveorRejectErranzer };
 
 const userManagemnent = async (req, res) => {
   const { id } = req.params;
