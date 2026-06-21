@@ -140,18 +140,39 @@ const getAllErrands = async (req, res) => {
 
 const getQuickErrands = async (req, res) => {
   try {
-    const errands = await ErrandModel.find({
-      priority: "urgent",
-      status: "open",
-      createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+    const errands = await ErrandModel.aggregate([
+      {
+        $match: {
+          status: "open",
+          createdAt: {
+            $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          },
+        },
+      },
+      {
+        $addFields: {
+          priorityOrder: {
+            $cond: [{ $eq: ["$priority", "urgent"] }, 1, 0],
+          },
+        },
+      },
+      {
+        $sort: {
+          priorityOrder: -1,
+          createdAt: -1,
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      message: "Quick errands fetched successfully",
+      errands,
     });
-    res
-      .status(200)
-      .json({ message: "Quick errands fetched successfully", errands });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Failed to fetch quick errands", error: err.message });
+    res.status(500).json({
+      message: "Failed to fetch quick errands",
+      error: err.message,
+    });
   }
 };
 
