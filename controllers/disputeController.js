@@ -2,6 +2,8 @@ const DisputeModel = require("../models/Dispute");
 const ErrandModel = require("../models/Errand");
 const TransactionModel = require("../models/Transaction");
 const WalletModel = require("../models/Wallet");
+const UserModel = require("../models/User");
+const { sendPushNotification, TEMPLATES } = require("../notifications/notificationService");
 
 const createDispute = async (req, res) => {
   try {
@@ -48,6 +50,26 @@ const createDispute = async (req, res) => {
     // update errand status
     errand.disputeStatus = "open";
     await errand.save();
+
+    // NOTIFY OTHER PARTY
+    const posterId = errand.poster_id.toString();
+    const erranzerId = errand.erranzer_id?.toString();
+    const otherPartyId = userId === posterId ? erranzerId : posterId;
+
+    if (otherPartyId) {
+      try {
+        const otherParty = await UserModel.findById(otherPartyId).select("pushToken");
+        if (otherParty?.pushToken) {
+          await sendPushNotification(
+            otherParty.pushToken,
+            TEMPLATES.DISPUTE_RAISED(),
+            { type: "dispute_raised", errandId: errandId.toString() }
+          );
+        }
+      } catch (err) {
+        console.error("Dispute push notification error:", err);
+      }
+    }
 
     return res.status(201).json({
       message: "Dispute raised successfully. Our team will review it shortly.",

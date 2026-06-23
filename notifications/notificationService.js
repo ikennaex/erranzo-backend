@@ -57,6 +57,16 @@ const TEMPLATES = {
     body: `$${amount} CAD has been sent successfully.`,
     channelId: "payments",
   }),
+  DISPUTE_RAISED: () => ({
+    title: "Dispute Raised",
+    body: "A dispute has been raised on one of your errands.",
+    channelId: "errands",
+  }),
+  REVIEW_RECEIVED: (reviewerName) => ({
+    title: "New Review",
+    body: `${reviewerName} left you a review.`,
+    channelId: "errands",
+  }),
 };
 
 // Core send function

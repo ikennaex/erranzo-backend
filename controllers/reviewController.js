@@ -1,6 +1,7 @@
 const ErrandModel = require("../models/Errand");
 const ReviewModel = require("../models/Review");
 const UserModel = require("../models/User");
+const { sendPushNotification, TEMPLATES } = require("../notifications/notificationService");
 
 const postReview = async (req, res) => {
   try {
@@ -52,6 +53,20 @@ const postReview = async (req, res) => {
       averageRating: avg,
       totalReviews: total,
     });
+
+    try {
+      const reviewer = await UserModel.findById(reviewerId).select("firstName lastName");
+      const erranzer = await UserModel.findById(erranzerId).select("pushToken");
+      if (erranzer?.pushToken && reviewer) {
+        await sendPushNotification(
+          erranzer.pushToken,
+          TEMPLATES.REVIEW_RECEIVED(`${reviewer.firstName} ${reviewer.lastName}`),
+          { type: "review_received", erranzerId: erranzerId.toString() }
+        );
+      }
+    } catch (err) {
+      console.error("Review push notification error:", err);
+    }
 
     res.status(201).json({
       message: "Review submitted successfully.",

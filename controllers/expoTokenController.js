@@ -5,7 +5,7 @@ const saveExpoToken = async (req, res) => {
         const {pushToken} = req.body
         const userId = req.user.id
 
-        if (!pushToken) {
+        if (pushToken === undefined) {
             return res.status(400).json({ error: "Push token is required" });
         }
 
