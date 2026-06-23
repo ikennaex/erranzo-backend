@@ -79,18 +79,13 @@ function initSocket(server) {
           activeInChat.get(data.receiverId).has(data.errandId);
 
         if (!receiverIsInChat) {
-          console.log(`[PUSH DEBUG] Receiver ${data.receiverId} is NOT in chat. Attempting push notification.`);
           try {
             const [sender, receiver] = await Promise.all([
               UserModel.findById(data.senderId).select("firstName lastName"),
               UserModel.findById(data.receiverId).select("pushToken"),
             ]);
 
-            console.log(`[PUSH DEBUG] Sender:`, sender ? `${sender.firstName} ${sender.lastName}` : 'Not found');
-            console.log(`[PUSH DEBUG] Receiver pushToken:`, receiver?.pushToken ? 'EXISTS' : 'NULL or Not found');
-
             if (receiver?.pushToken && sender) {
-              console.log(`[PUSH DEBUG] Sending push to ${receiver.pushToken}`);
               await sendPushNotification(
                 receiver.pushToken,
                 TEMPLATES.NEW_MESSAGE(`${sender.firstName} ${sender.lastName}`),
@@ -100,14 +95,10 @@ function initSocket(server) {
                   senderId: data.senderId,
                 }
               );
-            } else {
-              console.log(`[PUSH DEBUG] Skipped sending. Missing pushToken or sender data.`);
             }
           } catch (notifErr) {
             console.error("Chat push notification error:", notifErr);
           }
-        } else {
-          console.log(`[PUSH DEBUG] Receiver ${data.receiverId} IS in chat. Skipping push notification.`);
         }
 
       } catch (err) {

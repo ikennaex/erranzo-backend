@@ -80,7 +80,7 @@ async function sendPushNotification(pushTokens, template, data = {}) {
     .filter((token) => Expo.isExpoPushToken(token))
     .map((token) => ({
       to: token,
-      sound: "default",
+      sound: "notification.wav",
       title: template.title,
       body: template.body,
       data, // extra data for deep linking
