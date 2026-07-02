@@ -311,8 +311,8 @@ const assignErrand = async (req, res) => {
     }
 
     // HOLD FUNDS for escrow - debit from poster wallet and move to pending
-    wallet.balance -= errand.budget;
-    wallet.pending += errand.budget;
+    wallet.balance -= Number(errand.budget);
+    wallet.pending += Number(errand.budget);
 
     await wallet.save({ session });
 
