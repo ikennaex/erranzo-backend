@@ -10,6 +10,7 @@ const {
   TEMPLATES,
 } = require("../notifications/notificationService");
 const WalletModel = require("../models/Wallet");
+const TransactionModel = require("../models/Transaction");
 
 // post errand has wallet debit with escrow and also a transaction
 const postErrand = async (req, res) => {
@@ -472,6 +473,45 @@ const markCompleted = async (req, res) => {
       // save wallets
       await posterWallet.save({ session });
       await erranzerWallet.save({ session });
+
+      // record poster transaction
+      await TransactionModel.create(
+        [
+          {
+            userId: errand.poster_id,
+            type: "escrow_release",
+            amount: errand.budget,
+            status: "completed",
+            reference: `ERRAND-${errand._id}`,
+            metadata: {
+              errandId: errand._id,
+              errandTitle: errand.title,
+              releasedTo: errand.erranzer_id,
+            },
+          },
+        ],
+        { session },
+      );
+
+      // record erranzer transaction
+      await TransactionModel.create(
+        [
+          {
+            userId: errand.erranzer_id,
+            type: "earning",
+            amount: payout,
+            status: "completed",
+            reference: `ERRAND-${errand._id}`,
+            metadata: {
+              errandId: errand._id,
+              errandTitle: errand.title,
+              platformFee,
+              grossAmount: errand.budget,
+            },
+          },
+        ],
+        { session },
+      );
 
       // mark payment released
       errand.paymentReleased = true;

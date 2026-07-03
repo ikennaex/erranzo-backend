@@ -5,7 +5,7 @@ const errandSchema = new Schema(
   {
     title: { type: String, required: true },
     description: { type: String, required: true },
-    budget: { type: String, required: true },
+    budget: { type: Number, required: true },
     deadline: { type: String, required: true },
     category: {
       type: String,
