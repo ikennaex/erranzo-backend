@@ -45,6 +45,20 @@ const errandSchema = new Schema(
       default: "normal",
       required: true,
     },
+    isEmergency: {
+      type: Boolean,
+      default: false,
+    },
+
+    emergencySurcharge: {
+      type: Number,
+      default: 0,
+    },
+
+    emergencyExpiresAt: {
+      type: Date,
+      default: null,
+    },
     paymentStatus: {
       type: String,
       enum: ["held", "released", "refunded"],
