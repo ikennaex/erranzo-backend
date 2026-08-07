@@ -59,6 +59,16 @@ const errandSchema = new Schema(
       enum: ["none", "open", "resolved"],
       default: "none",
     },
+    sourceErrandId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Errand",
+      default: null,
+    },
+    preferredErranzerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );

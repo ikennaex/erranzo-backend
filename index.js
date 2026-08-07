@@ -4,6 +4,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const connectDB = require("./config/dbConfig");
 const { initSocket } = require("./config/socket");
+const FavouriteHelperModel = require("./models/FavoriteHelper");
 
 const app = express();
 require("dotenv").config();
@@ -48,7 +49,14 @@ app.use("/admin", require("./routes/adminRoutes"));
 // stripe and wallet routes
 app.use("/api/stripe", require("./routes/stripeRoute"));
 app.use("/api/wallet", require("./routes/walletRoute"));
+
+// errand routes 
 app.use("/api/errand", require("./routes/errandRoutes"));
+app.use("/errands", require("./routes/rebookErrandRoute"));
+
+// favorite routes 
+app.use("/favorites", require("./routes/favoriteRoute"));
+
 
 // review routes
 app.use("/reviews", require("./routes/reviewRoutes"));

@@ -494,7 +494,7 @@ const markCompleted = async (req, res) => {
       );
 
       // record erranzer transaction
-      await TransactionModel.create(
+      await TransactionModele.create(
         [
           {
             userId: errand.erranzer_id,
