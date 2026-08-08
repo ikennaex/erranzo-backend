@@ -83,6 +83,25 @@ const errandSchema = new Schema(
       ref: "User",
       default: null,
     },
+    etaMinutes: {
+      type: Number,
+      default: null,
+    },
+
+    etaUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+
+    erranzerLocation: {
+      type: {
+        type: String,
+        enum: ["Point"],
+      },
+      coordinates: {
+        type: [Number],
+      },
+    },
   },
   { timestamps: true },
 );

@@ -53,6 +53,7 @@ app.use("/api/wallet", require("./routes/walletRoute"));
 // errand routes 
 app.use("/api/errand", require("./routes/errandRoutes"));
 app.use("/errands", require("./routes/rebookErrandRoute"));
+app.use("/errands", require("./routes/errandLocationRoute"));
 
 // favorite routes 
 app.use("/favorites", require("./routes/favoriteRoute"));

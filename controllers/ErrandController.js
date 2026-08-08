@@ -101,7 +101,7 @@ const postErrand = async (req, res) => {
       emergencyExpiresAt,
     });
 
- // NOTIFY ERRANZERS
+    // NOTIFY ERRANZERS
     // ==========================================
 
     const erranzers = await UserModel.find({
@@ -114,15 +114,11 @@ const postErrand = async (req, res) => {
       const tokens = erranzers.map((e) => e.pushToken);
 
       if (isEmergency === true) {
-        await sendPushNotification(
-          tokens,
-          "Emergency Errand",
-          {
-            errandId: newErrand._id.toString(),
-            type: "emergency_errand",
-            channelId: "emergency",
-          }
-        );
+        await sendPushNotification(tokens, "Emergency Errand", {
+          errandId: newErrand._id.toString(),
+          type: "emergency_errand",
+          channelId: "emergency",
+        });
       } else {
         await sendPushNotification(
           tokens,
@@ -130,7 +126,7 @@ const postErrand = async (req, res) => {
           {
             errandId: newErrand._id.toString(),
             type: "errand_posted",
-          }
+          },
         );
       }
     }
@@ -139,14 +135,11 @@ const postErrand = async (req, res) => {
       recipientId: "all",
       senderId: req.user.id,
       errandId: newErrand._id,
-      type: isEmergency
-        ? "emergency_errand"
-        : "errand_posted",
+      type: isEmergency ? "emergency_errand" : "errand_posted",
       message: isEmergency
         ? `Emergency errand posted: ${newErrand.title}`
         : `${req.user.name || "Someone"} just posted a new errand: ${newErrand.title}`,
     });
-
 
     res.status(200).json({
       message: isEmergency
@@ -155,7 +148,6 @@ const postErrand = async (req, res) => {
 
       newErrand,
     });
-
   } catch (error) {
     console.error("Post errand error:", error);
 
@@ -258,10 +250,7 @@ const getActiveEmergencyErrands = async (req, res) => {
         $gt: new Date(),
       },
     })
-      .populate(
-        "poster_id",
-        "firstName lastName username"
-      )
+      .populate("poster_id", "firstName lastName username")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -269,10 +258,7 @@ const getActiveEmergencyErrands = async (req, res) => {
       data: errands,
     });
   } catch (error) {
-    console.error(
-      "Get active emergency errands error:",
-      error
-    );
+    console.error("Get active emergency errands error:", error);
 
     return res.status(500).json({
       success: false,
@@ -426,11 +412,9 @@ const assignErrand = async (req, res) => {
     // CALCULATE TOTAL AMOUNT
     // ==========================================
 
-    const emergencySurcharge =
-      Number(errand.emergencySurcharge || 0);
+    const emergencySurcharge = Number(errand.emergencySurcharge || 0);
 
-    const totalAmount =
-      Number(errand.budget) + emergencySurcharge;
+    const totalAmount = Number(errand.budget) + emergencySurcharge;
 
     // ==========================================
     // VALIDATE BALANCE
@@ -474,13 +458,9 @@ const assignErrand = async (req, res) => {
     // NOTIFICATIONS
     // ==========================================
 
-    const posterUser = await UserModel.findById(
-      errand.poster_id
-    );
+    const posterUser = await UserModel.findById(errand.poster_id);
 
-    const erranzerUser = await UserModel.findById(
-      erranzer_id
-    );
+    const erranzerUser = await UserModel.findById(erranzer_id);
 
     if (!posterUser) {
       return res.status(404).json({
@@ -499,12 +479,12 @@ const assignErrand = async (req, res) => {
         posterUser.pushToken,
         TEMPLATES.ERRAND_ACCEPTED(
           `${erranzerUser.firstName} ${erranzerUser.lastName}`,
-          errand.title
+          errand.title,
         ),
         {
           errandId: errand._id.toString(),
           type: "errand_accepted",
-        }
+        },
       );
     }
 
@@ -517,19 +497,14 @@ const assignErrand = async (req, res) => {
     });
 
     return res.status(200).json({
-      message:
-        "This errand has been assigned to you successfully",
+      message: "This errand has been assigned to you successfully",
       errand,
     });
-
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
 
-    console.error(
-      "Error assigning errand:",
-      err
-    );
+    console.error("Error assigning errand:", err);
 
     return res.status(500).json({
       message: "Failed to assign errand",
@@ -649,7 +624,7 @@ const markCompleted = async (req, res) => {
       );
 
       // record erranzer transaction
-      await TransactionModele.create(
+      await TransactionModel.create(
         [
           {
             userId: errand.erranzer_id,
@@ -674,6 +649,10 @@ const markCompleted = async (req, res) => {
       // mark errand completed
       errand.status = "completed";
     }
+
+    errand.erranzerLocation = undefined;
+    errand.etaMinutes = null;
+    errand.etaUpdatedAt = null;
 
     // save errand
     await errand.save({ session });
