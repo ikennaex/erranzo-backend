@@ -83,6 +83,11 @@ const errandSchema = new Schema(
       ref: "User",
       default: null,
     },
+    recurringScheduleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RecurringSchedule",
+      default: null,
+    },
     etaMinutes: {
       type: Number,
       default: null,

@@ -9,9 +9,13 @@ const FavouriteHelperModel = require("./models/FavoriteHelper");
 const app = express();
 require("dotenv").config();
 
+// cron jobs 
+require("./jobs/recurringJob");
+require("./jobs/recurringReminderJob");
+
 connectDB();
 
-app.use(express.json()); 
+app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
@@ -25,7 +29,7 @@ app.use(
       "https://www.erranzo.com",
     ],
     credentials: true,
-  })
+  }),
 );
 
 // Routes
@@ -42,7 +46,6 @@ app.use("/chat", require("./routes/chatRoute"));
 app.use("/expo-token", require("./routes/expoTokenRoute"));
 app.use("/api/calls", require("./routes/callRoutes"));
 
-
 app.use("/admin", require("./routes/adminLoginRoute"));
 app.use("/admin", require("./routes/adminRoutes"));
 
@@ -50,37 +53,35 @@ app.use("/admin", require("./routes/adminRoutes"));
 app.use("/api/stripe", require("./routes/stripeRoute"));
 app.use("/api/wallet", require("./routes/walletRoute"));
 
-// errand routes 
+// errand routes
 app.use("/api/errand", require("./routes/errandRoutes"));
 app.use("/errands", require("./routes/errandPhotoRoutes"));
 app.use("/errands", require("./routes/rebookErrandRoute"));
 app.use("/errands", require("./routes/errandLocationRoute"));
+app.use("/recurring", require("./routes/recurringRoutes"));
 
-// favorite routes 
+// favorite routes
 app.use("/favorites", require("./routes/favoriteRoute"));
-
 
 // review routes
 app.use("/reviews", require("./routes/reviewRoutes"));
 
-// payout routes 
+// payout routes
 app.use("/api/payout", require("./routes/payoutRoutes"));
 
-// disputes 
+// disputes
 app.use("/", require("./routes/disputeRoute"));
 
-// erranzer application 
+// erranzer application
 app.use("/erranzer", require("./routes/erranzerApplicationRoute"));
-
 
 app.use(
   "/api/webhook",
   express.raw({ type: "application/json" }),
-  require("./routes/stripeWebhookRoute")
+  require("./routes/stripeWebhookRoute"),
 );
 
-
-app.get("/", (req, res) => res.send("Hello World")); 
+app.get("/", (req, res) => res.send("Hello World"));
 
 const server = http.createServer(app);
 initSocket(server);
