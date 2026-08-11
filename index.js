@@ -9,7 +9,7 @@ const FavouriteHelperModel = require("./models/FavoriteHelper");
 const app = express();
 require("dotenv").config();
 
-// cron jobs 
+// cron jobs
 require("./jobs/recurringJob");
 require("./jobs/recurringReminderJob");
 
@@ -59,6 +59,9 @@ app.use("/errands", require("./routes/errandPhotoRoutes"));
 app.use("/errands", require("./routes/rebookErrandRoute"));
 app.use("/errands", require("./routes/errandLocationRoute"));
 app.use("/recurring", require("./routes/recurringRoutes"));
+
+// family routes
+app.use("/family", require("./routes/familyRoutes"));
 
 // favorite routes
 app.use("/favorites", require("./routes/favoriteRoute"));

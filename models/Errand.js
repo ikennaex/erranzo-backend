@@ -66,6 +66,17 @@ const errandSchema = new Schema(
     },
     erranzer_id: { type: Schema.Types.ObjectId, ref: "User", default: null },
     poster_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    onBehalfOf: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    bookedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     posterCompleted: { type: Boolean, default: false },
     erranzerCompleted: { type: Boolean, default: false },
     disputeStatus: {

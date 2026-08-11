@@ -10,6 +10,11 @@ const userSchema = new Schema(
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     role: { type: String, enum: ["user", "erranzer"], default: "user" },
+    accountType: {
+      type: String,
+      enum: ["standard", "senior", "guardian"],
+      default: "standard",
+    },
     bio: {},
     description: {},
     wallet: {},
