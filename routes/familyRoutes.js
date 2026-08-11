@@ -2,14 +2,13 @@ const express = require("express");
 
 const router = express.Router();
 
-const authToken = require("../middleware/authToken");
-
 const {
   createFamilyLink,
   acceptFamilyLink,
   revokeFamilyLink,
   getLinkedAccounts,
 } = require("../controllers/familyController");
+const { authToken } = require("../middleware/auth");
 
 
 router.post(
