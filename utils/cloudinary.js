@@ -2,26 +2,30 @@ const cloudinary = require("../config/cloudinary");
 
 const uploadToCloudinary = async (
   fileBuffer,
-  folder = "erranzer_ids"
+  folder = "erranzer_ids",
+  returnDetails = false
 ) => {
   return new Promise((resolve, reject) => {
-    cloudinary.uploader
-      .upload_stream(
-        {
-          folder,
-          resource_type: "image",
-        },
-        (error, result) => {
-          if (error) return reject(error);
+    cloudinary.uploader.upload_stream(
+      {
+        folder,
+      },
+      (error, result) => {
+        if (error) return reject(error);
 
-          resolve({
+        if (returnDetails) {
+          return resolve({
             secure_url: result.secure_url,
             public_id: result.public_id,
           });
         }
-      )
-      .end(fileBuffer);
+
+        resolve(result.secure_url);
+      }
+    ).end(fileBuffer);
   });
 };
 
-module.exports = { uploadToCloudinary };
+module.exports = {
+  uploadToCloudinary,
+};
