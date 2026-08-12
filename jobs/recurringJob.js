@@ -8,6 +8,7 @@ const WalletModel =
 
 const {
   createRecurringErrand,
+  calculateNextRun,
 } = require("../controllers/recurringController");
 
 
@@ -24,9 +25,7 @@ const processRecurringSchedules = async () => {
 
   for (const schedule of schedules) {
     try {
-      // ==========================================
       // CHECK MAX OCCURRENCES
-      // ==========================================
 
       if (
         schedule.maxOccurrences &&
@@ -82,9 +81,7 @@ const processRecurringSchedules = async () => {
         continue;
       }
 
-      // ==========================================
       // ATOMIC CLAIM
-      // ==========================================
 
       const claimed =
         await RecurringScheduleModel.findOneAndUpdate(
@@ -113,17 +110,13 @@ const processRecurringSchedules = async () => {
         continue;
       }
 
-      // ==========================================
       // CREATE ERRAND
-      // ==========================================
 
       await createRecurringErrand(
         claimed
       );
 
-      // ==========================================
       // CALCULATE NEXT RUN
-      // ==========================================
 
       const nextRun =
         calculateNextRun(
@@ -131,9 +124,7 @@ const processRecurringSchedules = async () => {
           now
         );
 
-      // ==========================================
       // INCREMENT OCCURRENCE
-      // ==========================================
 
       const newTotal =
         claimed.totalOccurrences + 1;

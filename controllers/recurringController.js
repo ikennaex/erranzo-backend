@@ -80,6 +80,7 @@ const createRecurringErrand = async (
       title: template.title,
       description: template.description,
       budget: template.budget,
+      deadline: template.deadline,
       category: template.category,
 
       location: template.location,
