@@ -89,6 +89,10 @@ const recurringScheduleSchema = new Schema(
         type: Number,
         required: true,
       },
+      deadline: {
+        type: String,
+        required: true,
+      },
 
       category: {
         type: String,
