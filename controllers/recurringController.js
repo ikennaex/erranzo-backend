@@ -143,7 +143,7 @@ const createRecurringSchedule = async (req, res) => {
       return res.status(400).json({
         message: "errandTemplate.deadline is required",
       });
-    }r
+    }
 
     // ==========================================
     // CREATE SCHEDULE FIRST
