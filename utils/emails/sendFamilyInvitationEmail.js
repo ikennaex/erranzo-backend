@@ -13,7 +13,6 @@ async function sendFamilyInvitationMail({
       email
     );
 
-    // Change this to the actual page in your app
     const invitationUrl =
       `https://erranzo.com/family/invitation/${linkId}`;
 

@@ -24,124 +24,342 @@ const postErrand = async (req, res) => {
     address,
     status,
     priority,
+    onBehalfOf,
     isEmergency = false,
   } = req.body;
 
   try {
-    // emergency setting
-    const emergencyRate = Number(process.env.EMERGENCY_SURCHARGE_RATE) || 0.25;
+    const guardianId = req.user.id;
 
-    const emergencyMinBudget = Number(process.env.EMERGENCY_MIN_BUDGET) || 30;
+    // ==========================================
+    // DETERMINE WHO IS POSTING / PAYING
+    // ==========================================
+
+    let posterId = guardianId;
+    let bookedBy = null;
+    let payerId = guardianId;
+
+    // ==========================================
+    // NORMAL ERRAND
+    // ==========================================
+
+    if (!onBehalfOf) {
+      posterId = guardianId;
+      bookedBy = null;
+      payerId = guardianId;
+    }
+
+    // ==========================================
+    // GUARDIAN BOOKING FOR SENIOR
+    // ==========================================
+
+    if (onBehalfOf) {
+      // ------------------------------------------
+      // Check guardian
+      // ------------------------------------------
+
+      const guardian = await UserModel.findById(guardianId);
+
+      if (!guardian) {
+        return res.status(404).json({
+          message: "Guardian account not found",
+        });
+      }
+
+      if (guardian.accountType !== "guardian") {
+        return res.status(403).json({
+          message:
+            "Only guardians can book on behalf of seniors",
+        });
+      }
+
+      // ------------------------------------------
+      // Check senior
+      // ------------------------------------------
+
+      const senior = await UserModel.findById(onBehalfOf);
+
+      if (!senior) {
+        return res.status(404).json({
+          message: "Senior account not found",
+        });
+      }
+
+      if (senior.accountType !== "senior") {
+        return res.status(400).json({
+          message:
+            "The selected account is not a senior account",
+        });
+      }
+
+      // ------------------------------------------
+      // Check active FamilyLink
+      // ------------------------------------------
+
+      const familyLink = await FamilyLinkModel.findOne({
+        guardianId: guardianId,
+        seniorId: onBehalfOf,
+        status: "active",
+      });
+
+      if (!familyLink) {
+        return res.status(403).json({
+          message:
+            "You do not have an active family link with this senior",
+        });
+      }
+
+      // ------------------------------------------
+      // Set ownership / payment
+      // ------------------------------------------
+
+      posterId = senior._id;
+      bookedBy = guardianId;
+      payerId = guardianId;
+    }
+
+    // ==========================================
+    // VALIDATE BUDGET
+    // ==========================================
+
+    const parsedBudget = Number(budget);
+
+    if (!Number.isFinite(parsedBudget) || parsedBudget <= 0) {
+      return res.status(400).json({
+        message: "Invalid budget",
+      });
+    }
+
+    // ==========================================
+    // EMERGENCY SETTINGS
+    // ==========================================
+
+    const emergencyRate =
+      Number(process.env.EMERGENCY_SURCHARGE_RATE) || 0.25;
+
+    const emergencyMinBudget =
+      Number(process.env.EMERGENCY_MIN_BUDGET) || 30;
 
     let emergencySurcharge = 0;
     let emergencyExpiresAt = null;
-    let finalPriority = priority;
 
+    let finalPriority = priority || "normal";
+
+    // ==========================================
     // EMERGENCY VALIDATION
+    // ==========================================
+
     if (isEmergency === true) {
-      // Minimum budget
-      if (Number(budget) < emergencyMinBudget) {
+      // ----------------------------------------
+      // Minimum emergency budget
+      // ----------------------------------------
+
+      if (parsedBudget < emergencyMinBudget) {
         return res.status(400).json({
           message: `Emergency errands require a minimum budget of ${emergencyMinBudget} CAD`,
         });
       }
 
-      // Maximum 3 emergency errands within 24 hours
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      // ----------------------------------------
+      // Maximum 3 emergency errands
+      // within 24 hours
+      // ----------------------------------------
 
-      const emergencyCount = await ErrandModel.countDocuments({
-        poster_id: req.user.id,
-        isEmergency: true,
-        createdAt: {
-          $gte: twentyFourHoursAgo,
-        },
-      });
+      const twentyFourHoursAgo = new Date(
+        Date.now() - 24 * 60 * 60 * 1000
+      );
+
+      let emergencyQuery;
+
+      // If guardian is booking for a senior,
+      // count the guardian's emergency bookings.
+      if (bookedBy) {
+        emergencyQuery = {
+          bookedBy: bookedBy,
+          isEmergency: true,
+          createdAt: {
+            $gte: twentyFourHoursAgo,
+          },
+        };
+      } else {
+        // Normal user
+        emergencyQuery = {
+          poster_id: posterId,
+          isEmergency: true,
+          createdAt: {
+            $gte: twentyFourHoursAgo,
+          },
+        };
+      }
+
+      const emergencyCount =
+        await ErrandModel.countDocuments(
+          emergencyQuery
+        );
 
       if (emergencyCount >= 3) {
         return res.status(429).json({
-          message: "You can only create 3 emergency errands within 24 hours",
+          message:
+            "You can only create 3 emergency errands within 24 hours",
         });
       }
 
-      // emergency surcharge
-      emergencySurcharge = Number((Number(budget) * emergencyRate).toFixed(2));
+      // ----------------------------------------
+      // Calculate emergency surcharge
+      // ----------------------------------------
 
+      emergencySurcharge = Number(
+        (parsedBudget * emergencyRate).toFixed(2)
+      );
+
+      // ----------------------------------------
       // Emergency expires after 2 hours
-      emergencyExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      // ----------------------------------------
+
+      emergencyExpiresAt = new Date(
+        Date.now() + 2 * 60 * 60 * 1000
+      );
 
       // Emergency errands are always urgent
       finalPriority = "urgent";
     }
 
-    // balance check
+    // ==========================================
+    // CALCULATE TOTAL REQUIRED
+    // ==========================================
+
+    const totalRequired =
+      parsedBudget + emergencySurcharge;
+
+    // ==========================================
+    // CHECK PAYER WALLET
+    // ==========================================
+
     const wallet = await WalletModel.findOne({
-      userId: req.user.id,
+      userId: payerId,
     });
 
-    if (!wallet || wallet.balance < budget) {
+    if (!wallet || wallet.balance < totalRequired) {
       return res.status(400).json({
         message: "Insufficient wallet balance",
+        required: totalRequired,
+        available: wallet ? wallet.balance : 0,
       });
     }
 
-    // create errand
+    // ==========================================
+    // CREATE ERRAND
+    // ==========================================
+
     const newErrand = await ErrandModel.create({
       title,
       description,
-      budget,
+
+      budget: parsedBudget,
+
       deadline,
+
       category,
+
       location,
+
       address,
-      status,
+
+      status: status || "open",
+
       priority: finalPriority,
-      poster_id: req.user.id,
+
+      // ----------------------------------------
+      // FAMILY ACCOUNT FIELDS
+      // ----------------------------------------
+
+      poster_id: posterId,
+
+      bookedBy: bookedBy,
+
+      onBehalfOf: onBehalfOf || null,
+
+      // ----------------------------------------
+      // EMERGENCY FIELDS
+      // ----------------------------------------
+
       isEmergency: isEmergency === true,
+
       emergencySurcharge,
+
       emergencyExpiresAt,
     });
 
-    // NOTIFY ERRANZERS
-    // ==========================================
-
     const erranzers = await UserModel.find({
       role: "erranzer",
-      pushToken: { $exists: true, $ne: null },
-      _id: { $ne: req.user.id },
+      pushToken: {
+        $exists: true,
+        $ne: null,
+      },
+      _id: {
+        $ne: posterId,
+      },
     }).select("pushToken");
 
     if (erranzers.length > 0) {
-      const tokens = erranzers.map((e) => e.pushToken);
+      const tokens = erranzers.map(
+        (e) => e.pushToken
+      );
 
       if (isEmergency === true) {
-        await sendPushNotification(tokens, "Emergency Errand", {
-          errandId: newErrand._id.toString(),
-          type: "emergency_errand",
-          channelId: "emergency",
-        });
+        await sendPushNotification(
+          tokens,
+          "Emergency Errand",
+          {
+            errandId:
+              newErrand._id.toString(),
+
+            type: "emergency_errand",
+
+            channelId: "emergency",
+          }
+        );
       } else {
         await sendPushNotification(
           tokens,
-          TEMPLATES.ERRAND_POSTED(newErrand.title),
+          TEMPLATES.ERRAND_POSTED(
+            newErrand.title
+          ),
           {
-            errandId: newErrand._id.toString(),
+            errandId:
+              newErrand._id.toString(),
+
             type: "errand_posted",
-          },
+          }
         );
       }
     }
 
+    // ==========================================
+    // IN-APP NOTIFICATION
+    // ==========================================
+
     await sendNotification({
       recipientId: "all",
-      senderId: req.user.id,
+
+      senderId: guardianId,
+
       errandId: newErrand._id,
-      type: isEmergency ? "emergency_errand" : "errand_posted",
+
+      type: isEmergency
+        ? "emergency_errand"
+        : "errand_posted",
+
       message: isEmergency
         ? `Emergency errand posted: ${newErrand.title}`
         : `${req.user.name || "Someone"} just posted a new errand: ${newErrand.title}`,
     });
 
-    res.status(200).json({
+    // ==========================================
+    // RESPONSE
+    // ==========================================
+
+    return res.status(201).json({
       message: isEmergency
         ? "Emergency errand posted successfully"
         : "Errand posted successfully",
@@ -149,9 +367,12 @@ const postErrand = async (req, res) => {
       newErrand,
     });
   } catch (error) {
-    console.error("Post errand error:", error);
+    console.error(
+      "Post errand error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to post errand",
       error: error.message,
     });
@@ -364,7 +585,10 @@ const assignErrand = async (req, res) => {
     const { id } = req.params;
     const erranzer_id = req.user.id;
 
-    // find errand
+    // ==========================================
+    // FIND ERRAND
+    // ==========================================
+
     const errand = await ErrandModel.findById(id).session(session);
 
     if (!errand) {
@@ -376,7 +600,10 @@ const assignErrand = async (req, res) => {
       });
     }
 
-    // prevent double assignment
+    // ==========================================
+    // PREVENT DOUBLE ASSIGNMENT
+    // ==========================================
+
     if (errand.erranzer_id) {
       await session.abortTransaction();
       session.endSession();
@@ -403,18 +630,40 @@ const assignErrand = async (req, res) => {
       });
     }
 
-    // poster wallet
+    // ==========================================
+    // DETERMINE WHO PAYS
+    // ==========================================
+    //
+    // Normal errand:
+    //   bookedBy = null
+    //   payer = poster_id
+    //
+    // Guardian booking:
+    //   bookedBy = guardian
+    //   payer = guardian
+    //
+
+    const payerId = errand.bookedBy || errand.poster_id;
+
+    // ==========================================
+    // FIND PAYER WALLET
+    // ==========================================
+
     const wallet = await WalletModel.findOne({
-      userId: errand.poster_id,
+      userId: payerId,
     }).session(session);
 
     // ==========================================
     // CALCULATE TOTAL AMOUNT
     // ==========================================
 
-    const emergencySurcharge = Number(errand.emergencySurcharge || 0);
+    const emergencySurcharge = Number(
+      errand.emergencySurcharge || 0
+    );
 
-    const totalAmount = Number(errand.budget) + emergencySurcharge;
+    const totalAmount =
+      Number(errand.budget) +
+      emergencySurcharge;
 
     // ==========================================
     // VALIDATE BALANCE
@@ -425,7 +674,7 @@ const assignErrand = async (req, res) => {
       session.endSession();
 
       return res.status(400).json({
-        message: "Poster has insufficient wallet balance",
+        message: "Payer has insufficient wallet balance",
       });
     }
 
@@ -458,9 +707,11 @@ const assignErrand = async (req, res) => {
     // NOTIFICATIONS
     // ==========================================
 
-    const posterUser = await UserModel.findById(errand.poster_id);
+    const posterUser =
+      await UserModel.findById(errand.poster_id);
 
-    const erranzerUser = await UserModel.findById(erranzer_id);
+    const erranzerUser =
+      await UserModel.findById(erranzer_id);
 
     if (!posterUser) {
       return res.status(404).json({
@@ -474,17 +725,18 @@ const assignErrand = async (req, res) => {
       });
     }
 
-    if (posterUser?.pushToken) {
+    // Notify the poster (senior if guardian booked it)
+    if (posterUser.pushToken) {
       await sendPushNotification(
         posterUser.pushToken,
         TEMPLATES.ERRAND_ACCEPTED(
           `${erranzerUser.firstName} ${erranzerUser.lastName}`,
-          errand.title,
+          errand.title
         ),
         {
           errandId: errand._id.toString(),
           type: "errand_accepted",
-        },
+        }
       );
     }
 
@@ -496,15 +748,50 @@ const assignErrand = async (req, res) => {
       message: `Your errand "${errand.title}" has been assigned to an erranzer.`,
     });
 
+    // ==========================================
+    // ALSO NOTIFY GUARDIAN IF BOOKED ON BEHALF
+    // ==========================================
+
+    if (errand.bookedBy) {
+      const guardianUser =
+        await UserModel.findById(errand.bookedBy);
+
+      if (guardianUser?.pushToken) {
+        await sendPushNotification(
+          guardianUser.pushToken,
+          TEMPLATES.ERRAND_ACCEPTED(
+            `${erranzerUser.firstName} ${erranzerUser.lastName}`,
+            errand.title
+          ),
+          {
+            errandId: errand._id.toString(),
+            type: "errand_accepted",
+          }
+        );
+      }
+
+      await sendNotification({
+        recipientId: errand.bookedBy,
+        senderId: erranzer_id,
+        errandId: errand._id,
+        type: "errand_accepted",
+        message: `The errand "${errand.title}" that you booked on behalf of a family member has been assigned to an erranzer.`,
+      });
+    }
+
     return res.status(200).json({
-      message: "This errand has been assigned to you successfully",
+      message:
+        "This errand has been assigned to you successfully",
       errand,
     });
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
 
-    console.error("Error assigning errand:", err);
+    console.error(
+      "Error assigning errand:",
+      err
+    );
 
     return res.status(500).json({
       message: "Failed to assign errand",
@@ -522,7 +809,10 @@ const markCompleted = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // find errand
+    // ==========================================
+    // FIND ERRAND
+    // ==========================================
+
     const errand = await ErrandModel.findById(id).session(session);
 
     if (!errand) {
@@ -534,7 +824,10 @@ const markCompleted = async (req, res) => {
       });
     }
 
-    // prevent duplicate completion e
+    // ==========================================
+    // PREVENT DUPLICATE COMPLETION
+    // ==========================================
+
     if (errand.status === "completed") {
       await session.abortTransaction();
       session.endSession();
@@ -544,12 +837,84 @@ const markCompleted = async (req, res) => {
       });
     }
 
-    const isPoster = errand.poster_id.toString() === userId.toString();
+    // ==========================================
+    // MAKE SURE ERRANZER EXISTS
+    // ==========================================
 
-    const isErranzer = errand.erranzer_id.toString() === userId.toString();
+    if (!errand.erranzer_id) {
+      await session.abortTransaction();
+      session.endSession();
 
-    // authorization
-    if (!isPoster && !isErranzer) {
+      return res.status(400).json({
+        message: "This errand has not been assigned yet",
+      });
+    }
+
+    // ==========================================
+    // IDENTIFY USERS
+    // ==========================================
+
+    const posterId = errand.poster_id.toString();
+
+    const erranzerId = errand.erranzer_id.toString();
+
+    const currentUserId = userId.toString();
+
+
+    const payerId = errand.bookedBy
+      ? errand.bookedBy.toString()
+      : posterId;
+
+
+    // ==========================================
+    // CHECK FAMILY GUARDIAN AUTHORIZATION
+    // ==========================================
+
+    let isGuardian = false;
+
+    if (errand.bookedBy) {
+      isGuardian =
+        errand.bookedBy.toString() === currentUserId;
+
+      if (isGuardian) {
+        // Make sure the guardian is still linked
+        // to the senior.
+
+        const familyLink =
+          await FamilyLinkModel.findOne({
+            guardianId: errand.bookedBy,
+            seniorId: errand.poster_id,
+            status: "active",
+          }).session(session);
+
+      }
+    }
+
+
+    // ==========================================
+    // DETERMINE WHO IS COMPLETING
+    // ==========================================
+
+    const isPoster =
+      posterId === currentUserId;
+
+    const isErranzer =
+      erranzerId === currentUserId;
+
+    /*
+      For a family errand, the guardian should also
+      be allowed to act on behalf of the senior.
+    */
+
+    const canActAsPoster =
+      isPoster || isGuardian;
+
+
+    // ==========================================
+    // AUTHORIZATION
+    // ==========================================
+
+    if (!canActAsPoster && !isErranzer) {
       await session.abortTransaction();
       session.endSession();
 
@@ -558,8 +923,12 @@ const markCompleted = async (req, res) => {
       });
     }
 
-    // mark completion
-    if (isPoster) {
+
+    // ==========================================
+    // MARK WHO COMPLETED
+    // ==========================================
+
+    if (canActAsPoster) {
       errand.posterCompleted = true;
     }
 
@@ -567,19 +936,33 @@ const markCompleted = async (req, res) => {
       errand.erranzerCompleted = true;
     }
 
+
+    // ==========================================
     // BOTH USERS COMPLETED
-    if (errand.posterCompleted && errand.erranzerCompleted) {
-      // poster wallet
-      const posterWallet = await WalletModel.findOne({
-        userId: errand.poster_id,
-      }).session(session);
+    // ==========================================
 
-      // erranzer wallet
-      const erranzerWallet = await WalletModel.findOne({
-        userId: errand.erranzer_id,
-      }).session(session);
+    if (
+      errand.posterCompleted &&
+      errand.erranzerCompleted
+    ) {
 
-      if (!posterWallet || !erranzerWallet) {
+      // ========================================
+      // FIND PAYER WALLET
+      // ========================================
+
+      const payerWallet =
+        await WalletModel.findOne({
+          userId: payerId,
+        }).session(session);
+
+      // Erranzer wallet
+      const erranzerWallet =
+        await WalletModel.findOne({
+          userId: errand.erranzer_id,
+        }).session(session);
+
+
+      if (!payerWallet || !erranzerWallet) {
         await session.abortTransaction();
         session.endSession();
 
@@ -588,150 +971,532 @@ const markCompleted = async (req, res) => {
         });
       }
 
-      // remove escrow hold
-      posterWallet.pending -= errand.budget;
 
-      // platform fee example (10%)
-      const platformFee = errand.budget * 0.1;
+      // ========================================
+      // CALCULATE TOTAL HELD AMOUNT
+      // ========================================
 
-      // erranzer payout
-      const payout = errand.budget - platformFee;
+      const budget =
+        Number(errand.budget || 0);
 
-      // credit erranzer
+      const emergencySurcharge =
+        Number(
+          errand.emergencySurcharge || 0
+        );
+
+      const totalHeld =
+        budget + emergencySurcharge;
+
+
+      // ========================================
+      // VALIDATE PENDING BALANCE
+      // ========================================
+
+      if (
+        payerWallet.pending < totalHeld
+      ) {
+        await session.abortTransaction();
+        session.endSession();
+
+        return res.status(400).json({
+          message:
+            "Insufficient pending escrow balance",
+        });
+      }
+
+
+      // ========================================
+      // RELEASE ESCROW
+      // ========================================
+
+      payerWallet.pending -= totalHeld;
+
+
+      // ========================================
+      // PLATFORM FEE
+      // ========================================
+
+      /*
+        Default platform fee = 10%
+
+        If you later add:
+
+        errand.platformFeeOverride
+
+        you can use it here.
+      */
+
+      const platformFeeRate =
+        errand.platformFeeOverride !== undefined &&
+        errand.platformFeeOverride !== null
+          ? Number(
+              errand.platformFeeOverride
+            )
+          : 0.10;
+
+
+      const platformFee =
+        Number(
+          (
+            budget *
+            platformFeeRate
+          ).toFixed(2)
+        );
+
+
+      // ========================================
+      // ERRANZER PAYOUT
+      // ========================================
+
+      const payout =
+        Number(
+          (budget - platformFee).toFixed(2)
+        );
+
+
+      // ========================================
+      // VALIDATE PAYOUT
+      // ========================================
+
+      if (payout < 0) {
+        await session.abortTransaction();
+        session.endSession();
+
+        return res.status(400).json({
+          message:
+            "Invalid platform fee configuration",
+        });
+      }
+
+
+      // ========================================
+      // CREDIT ERRANZER
+      // ========================================
+
       erranzerWallet.balance += payout;
 
-      // save wallets
-      await posterWallet.save({ session });
-      await erranzerWallet.save({ session });
 
-      // record poster transaction
+      // ========================================
+      // SAVE WALLETS
+      // ========================================
+
+      await payerWallet.save({
+        session,
+      });
+
+      await erranzerWallet.save({
+        session,
+      });
+
+
+      // ========================================
+      // RECORD PAYER TRANSACTION
+      // ========================================
+
       await TransactionModel.create(
         [
           {
-            userId: errand.poster_id,
+            userId: payerId,
+
             type: "escrow_release",
-            amount: errand.budget,
+
+            amount: totalHeld,
+
             status: "completed",
-            reference: `ERRAND-${errand._id}`,
+
+            reference:
+              `ERRAND-${errand._id}`,
+
+            corporateAccountId:
+              errand.corporateAccountId ||
+              null,
+
             metadata: {
               errandId: errand._id,
-              errandTitle: errand.title,
-              releasedTo: errand.erranzer_id,
+
+              errandTitle:
+                errand.title,
+
+              releasedTo:
+                errand.erranzer_id,
+
+              posterId:
+                errand.poster_id,
+
+              bookedBy:
+                errand.bookedBy || null,
+
+              budget,
+
+              emergencySurcharge,
+
+              platformFee,
             },
           },
         ],
-        { session },
+        {
+          session,
+        }
       );
 
-      // record erranzer transaction
+
+      // ========================================
+      // RECORD ERRANZER EARNING
+      // ========================================
+
       await TransactionModel.create(
         [
           {
-            userId: errand.erranzer_id,
+            userId:
+              errand.erranzer_id,
+
             type: "earning",
+
             amount: payout,
+
             status: "completed",
-            reference: `ERRAND-${errand._id}`,
+
+            reference:
+              `ERRAND-${errand._id}`,
+
             metadata: {
-              errandId: errand._id,
-              errandTitle: errand.title,
+              errandId:
+                errand._id,
+
+              errandTitle:
+                errand.title,
+
               platformFee,
-              grossAmount: errand.budget,
+
+              grossAmount:
+                budget,
+
+              emergencySurcharge,
             },
           },
         ],
-        { session },
+        {
+          session,
+        }
       );
 
-      // mark payment released
+
+      // ========================================
+      // MARK PAYMENT RELEASED
+      // ========================================
+
       errand.paymentReleased = true;
 
-      // mark errand completed
+
+      // ========================================
+      // MARK ERRAND COMPLETED
+      // ========================================
+
       errand.status = "completed";
     }
 
-    errand.erranzerLocation = undefined;
-    errand.etaMinutes = null;
-    errand.etaUpdatedAt = null;
 
-    // save errand
-    await errand.save({ session });
+    // ==========================================
+    // STOP LIVE TRACKING
+    // ==========================================
 
-    // commit transaction
+    /*
+      Once completion happens, the erranzer's
+      location and ETA should no longer be active.
+    */
+
+    if (errand.status === "completed") {
+      errand.erranzerLocation = undefined;
+      errand.etaMinutes = null;
+      errand.etaUpdatedAt = null;
+    }
+
+
+    // ==========================================
+    // SAVE ERRAND
+    // ==========================================
+
+    await errand.save({
+      session,
+    });
+
+
+    // ==========================================
+    // COMMIT TRANSACTION
+    // ==========================================
+
     await session.commitTransaction();
+
     session.endSession();
 
-    // users
-    const posterUser = await UserModel.findById(errand.poster_id);
 
-    const erranzerUser = await UserModel.findById(errand.erranzer_id);
+    // ==========================================
+    // GET USERS FOR NOTIFICATIONS
+    // ==========================================
 
-    // notifications
-    if (errand.posterCompleted && errand.erranzerCompleted) {
+    const posterUser =
+      await UserModel.findById(
+        errand.poster_id
+      );
+
+    const erranzerUser =
+      await UserModel.findById(
+        errand.erranzer_id
+      );
+
+    const guardianUser =
+      errand.bookedBy
+        ? await UserModel.findById(
+            errand.bookedBy
+          )
+        : null;
+
+
+    // ==========================================
+    // BOTH COMPLETED
+    // ==========================================
+
+    if (
+      errand.posterCompleted &&
+      errand.erranzerCompleted
+    ) {
+
+      // Notify erranzer
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
-          TEMPLATES.ERRAND_COMPLETED_ERRANZER(errand.title),
+
+          TEMPLATES.ERRAND_COMPLETED_ERRANZER(
+            errand.title
+          ),
+
           {
-            errandId: errand._id.toString(),
-            type: "errand_completed",
-          },
+            errandId:
+              errand._id.toString(),
+
+            type:
+              "errand_completed",
+          }
         );
       }
 
+
+      // Notify senior/poster
       if (posterUser?.pushToken) {
         await sendPushNotification(
           posterUser.pushToken,
-          TEMPLATES.ERRAND_COMPLETED_POSTER(errand.title),
+
+          TEMPLATES.ERRAND_COMPLETED_POSTER(
+            errand.title
+          ),
+
           {
-            errandId: errand._id.toString(),
-            type: "errand_completed",
-          },
+            errandId:
+              errand._id.toString(),
+
+            type:
+              "errand_completed",
+          }
         );
       }
-    } else if (isPoster && !errand.erranzerCompleted) {
-      if (erranzerUser?.pushToken) {
+
+
+      // Notify guardian if different
+      // from senior
+      if (
+        guardianUser &&
+        guardianUser._id.toString() !==
+          posterUser?._id.toString() &&
+        guardianUser.pushToken
+      ) {
         await sendPushNotification(
-          erranzerUser.pushToken,
-          TEMPLATES.ERRAND_PRE_COMPLETED(
-            errand.title,
-            `${posterUser.firstName} ${posterUser.lastName}`,
+          guardianUser.pushToken,
+
+          TEMPLATES.ERRAND_COMPLETED_POSTER(
+            errand.title
           ),
+
           {
-            errandId: errand._id.toString(),
-            type: "errand_pre_completed",
-          },
-        );
-      }
-    } else if (isErranzer && !errand.posterCompleted) {
-      if (posterUser?.pushToken) {
-        await sendPushNotification(
-          posterUser.pushToken,
-          TEMPLATES.ERRAND_PRE_COMPLETED(
-            errand.title,
-            `${erranzerUser.firstName} ${erranzerUser.lastName}`,
-          ),
-          {
-            errandId: errand._id.toString(),
-            type: "errand_pre_completed",
-          },
+            errandId:
+              errand._id.toString(),
+
+            type:
+              "errand_completed",
+          }
         );
       }
     }
 
-    res.status(200).json({
-      message: "Marked as completed successfully",
+
+    // ==========================================
+    // POSTER/GUARDIAN COMPLETED FIRST
+    // ==========================================
+
+    else if (
+      canActAsPoster &&
+      !errand.erranzerCompleted
+    ) {
+
+      if (erranzerUser?.pushToken) {
+        await sendPushNotification(
+          erranzerUser.pushToken,
+
+          TEMPLATES.ERRAND_PRE_COMPLETED(
+            errand.title,
+
+            posterUser
+              ? `${posterUser.firstName} ${posterUser.lastName}`
+              : "The poster"
+          ),
+
+          {
+            errandId:
+              errand._id.toString(),
+
+            type:
+              "errand_pre_completed",
+          }
+        );
+      }
+    }
+
+
+    // ==========================================
+    // ERRANZER COMPLETED FIRST
+    // ==========================================
+
+    else if (
+      isErranzer &&
+      !errand.posterCompleted
+    ) {
+
+      if (posterUser?.pushToken) {
+        await sendPushNotification(
+          posterUser.pushToken,
+
+          TEMPLATES.ERRAND_PRE_COMPLETED(
+            errand.title,
+
+            `${erranzerUser.firstName} ${erranzerUser.lastName}`
+          ),
+
+          {
+            errandId:
+              errand._id.toString(),
+
+            type:
+              "errand_pre_completed",
+          }
+        );
+      }
+
+      // Also notify guardian
+      if (
+        guardianUser &&
+        guardianUser.pushToken
+      ) {
+        await sendPushNotification(
+          guardianUser.pushToken,
+
+          TEMPLATES.ERRAND_PRE_COMPLETED(
+            errand.title,
+
+            `${erranzerUser.firstName} ${erranzerUser.lastName}`
+          ),
+
+          {
+            errandId:
+              errand._id.toString(),
+
+            type:
+              "errand_pre_completed",
+          }
+        );
+      }
+    }
+
+
+    // ==========================================
+    // DATABASE NOTIFICATION
+    // ==========================================
+
+    if (
+      errand.posterCompleted &&
+      errand.erranzerCompleted
+    ) {
+
+      await sendNotification({
+        recipientId:
+          errand.poster_id,
+
+        senderId:
+          userId,
+
+        errandId:
+          errand._id,
+
+        type:
+          "errand_completed",
+
+        message:
+          `Your errand "${errand.title}" has been completed.`,
+      });
+
+
+      // Notify guardian too
+      if (
+        errand.bookedBy &&
+        errand.bookedBy.toString() !==
+          errand.poster_id.toString()
+      ) {
+        await sendNotification({
+          recipientId:
+            errand.bookedBy,
+
+          senderId:
+            userId,
+
+          errandId:
+            errand._id,
+
+          type:
+            "errand_completed",
+
+          message:
+            `The errand "${errand.title}" has been completed.`,
+        });
+      }
+    }
+
+
+    // ==========================================
+    // RESPONSE
+    // ==========================================
+
+    return res.status(200).json({
+      message:
+        "Marked as completed successfully",
+
       errand,
     });
+
   } catch (err) {
+
     await session.abortTransaction();
+
     session.endSession();
 
-    console.error("Error Updating errand:", err);
+    console.error(
+      "Error Updating errand:",
+      err
+    );
 
-    res.status(500).json({
-      message: "Failed to complete errand",
-      error: err.message,
+    return res.status(500).json({
+      message:
+        "Failed to complete errand",
+
+      error:
+        err.message,
     });
   }
 };
