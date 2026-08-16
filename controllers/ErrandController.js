@@ -279,15 +279,15 @@ const postErrand = async (req, res) => {
     await newErrand.populate([
       {
         path: "poster_id",
-        select: "firstName lastName  accountType",
+        select: "firstName lastName",
       },
       {
         path: "bookedBy",
-        select: "firstName lastName  accountType",
+        select: "firstName lastName",
       },
       {
         path: "onBehalfOf",
-        select: "firstName lastName  accountType",
+        select: "firstName lastName",
       },
     ]);
 
@@ -482,6 +482,23 @@ const getErrandById = async (req, res) => {
     if (!errand) {
       return res.status(404).json({ message: "Errand not found" });
     }
+
+    // Populate User references
+    await errand.populate([
+      {
+        path: "poster_id",
+        select: "firstName lastName email accountType",
+      },
+      {
+        path: "bookedBy",
+        select: "firstName lastName email accountType",
+      },
+      {
+        path: "onBehalfOf",
+        select: "firstName lastName email accountType",
+      },
+    ]);
+
     res.status(200).json({ message: "Errand fetched successfully", errand });
   } catch (error) {
     res
