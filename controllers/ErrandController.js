@@ -11,6 +11,7 @@ const {
 } = require("../notifications/notificationService");
 const WalletModel = require("../models/Wallet");
 const TransactionModel = require("../models/Transaction");
+const FamilyLinkModel = require("../models/FamilyLink");
 
 // post errand has wallet debit with escrow and also a transaction
 const postErrand = async (req, res) => {
