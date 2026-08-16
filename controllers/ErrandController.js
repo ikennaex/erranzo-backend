@@ -69,8 +69,7 @@ const postErrand = async (req, res) => {
 
       if (guardian.accountType !== "guardian") {
         return res.status(403).json({
-          message:
-            "Only guardians can book on behalf of seniors",
+          message: "Only guardians can book on behalf of seniors",
         });
       }
 
@@ -88,8 +87,7 @@ const postErrand = async (req, res) => {
 
       if (senior.accountType !== "senior") {
         return res.status(400).json({
-          message:
-            "The selected account is not a senior account",
+          message: "The selected account is not a senior account",
         });
       }
 
@@ -105,8 +103,7 @@ const postErrand = async (req, res) => {
 
       if (!familyLink) {
         return res.status(403).json({
-          message:
-            "You do not have an active family link with this senior",
+          message: "You do not have an active family link with this senior",
         });
       }
 
@@ -135,11 +132,9 @@ const postErrand = async (req, res) => {
     // EMERGENCY SETTINGS
     // ==========================================
 
-    const emergencyRate =
-      Number(process.env.EMERGENCY_SURCHARGE_RATE) || 0.25;
+    const emergencyRate = Number(process.env.EMERGENCY_SURCHARGE_RATE) || 0.25;
 
-    const emergencyMinBudget =
-      Number(process.env.EMERGENCY_MIN_BUDGET) || 30;
+    const emergencyMinBudget = Number(process.env.EMERGENCY_MIN_BUDGET) || 30;
 
     let emergencySurcharge = 0;
     let emergencyExpiresAt = null;
@@ -166,9 +161,7 @@ const postErrand = async (req, res) => {
       // within 24 hours
       // ----------------------------------------
 
-      const twentyFourHoursAgo = new Date(
-        Date.now() - 24 * 60 * 60 * 1000
-      );
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
       let emergencyQuery;
 
@@ -193,15 +186,11 @@ const postErrand = async (req, res) => {
         };
       }
 
-      const emergencyCount =
-        await ErrandModel.countDocuments(
-          emergencyQuery
-        );
+      const emergencyCount = await ErrandModel.countDocuments(emergencyQuery);
 
       if (emergencyCount >= 3) {
         return res.status(429).json({
-          message:
-            "You can only create 3 emergency errands within 24 hours",
+          message: "You can only create 3 emergency errands within 24 hours",
         });
       }
 
@@ -209,17 +198,13 @@ const postErrand = async (req, res) => {
       // Calculate emergency surcharge
       // ----------------------------------------
 
-      emergencySurcharge = Number(
-        (parsedBudget * emergencyRate).toFixed(2)
-      );
+      emergencySurcharge = Number((parsedBudget * emergencyRate).toFixed(2));
 
       // ----------------------------------------
       // Emergency expires after 2 hours
       // ----------------------------------------
 
-      emergencyExpiresAt = new Date(
-        Date.now() + 2 * 60 * 60 * 1000
-      );
+      emergencyExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
       // Emergency errands are always urgent
       finalPriority = "urgent";
@@ -229,8 +214,7 @@ const postErrand = async (req, res) => {
     // CALCULATE TOTAL REQUIRED
     // ==========================================
 
-    const totalRequired =
-      parsedBudget + emergencySurcharge;
+    const totalRequired = parsedBudget + emergencySurcharge;
 
     // ==========================================
     // CHECK PAYER WALLET
@@ -291,6 +275,22 @@ const postErrand = async (req, res) => {
       emergencyExpiresAt,
     });
 
+    // Populate User references
+    await newErrand.populate([
+      {
+        path: "poster_id",
+        select: "firstName lastName  accountType",
+      },
+      {
+        path: "bookedBy",
+        select: "firstName lastName  accountType",
+      },
+      {
+        path: "onBehalfOf",
+        select: "firstName lastName  accountType",
+      },
+    ]);
+
     const erranzers = await UserModel.find({
       role: "erranzer",
       pushToken: {
@@ -303,35 +303,25 @@ const postErrand = async (req, res) => {
     }).select("pushToken");
 
     if (erranzers.length > 0) {
-      const tokens = erranzers.map(
-        (e) => e.pushToken
-      );
+      const tokens = erranzers.map((e) => e.pushToken);
 
       if (isEmergency === true) {
-        await sendPushNotification(
-          tokens,
-          "Emergency Errand",
-          {
-            errandId:
-              newErrand._id.toString(),
+        await sendPushNotification(tokens, "Emergency Errand", {
+          errandId: newErrand._id.toString(),
 
-            type: "emergency_errand",
+          type: "emergency_errand",
 
-            channelId: "emergency",
-          }
-        );
+          channelId: "emergency",
+        });
       } else {
         await sendPushNotification(
           tokens,
-          TEMPLATES.ERRAND_POSTED(
-            newErrand.title
-          ),
+          TEMPLATES.ERRAND_POSTED(newErrand.title),
           {
-            errandId:
-              newErrand._id.toString(),
+            errandId: newErrand._id.toString(),
 
             type: "errand_posted",
-          }
+          },
         );
       }
     }
@@ -347,9 +337,7 @@ const postErrand = async (req, res) => {
 
       errandId: newErrand._id,
 
-      type: isEmergency
-        ? "emergency_errand"
-        : "errand_posted",
+      type: isEmergency ? "emergency_errand" : "errand_posted",
 
       message: isEmergency
         ? `Emergency errand posted: ${newErrand.title}`
@@ -368,10 +356,7 @@ const postErrand = async (req, res) => {
       newErrand,
     });
   } catch (error) {
-    console.error(
-      "Post errand error:",
-      error
-    );
+    console.error("Post errand error:", error);
 
     return res.status(500).json({
       message: "Failed to post errand",
@@ -658,13 +643,9 @@ const assignErrand = async (req, res) => {
     // CALCULATE TOTAL AMOUNT
     // ==========================================
 
-    const emergencySurcharge = Number(
-      errand.emergencySurcharge || 0
-    );
+    const emergencySurcharge = Number(errand.emergencySurcharge || 0);
 
-    const totalAmount =
-      Number(errand.budget) +
-      emergencySurcharge;
+    const totalAmount = Number(errand.budget) + emergencySurcharge;
 
     // ==========================================
     // VALIDATE BALANCE
@@ -708,11 +689,9 @@ const assignErrand = async (req, res) => {
     // NOTIFICATIONS
     // ==========================================
 
-    const posterUser =
-      await UserModel.findById(errand.poster_id);
+    const posterUser = await UserModel.findById(errand.poster_id);
 
-    const erranzerUser =
-      await UserModel.findById(erranzer_id);
+    const erranzerUser = await UserModel.findById(erranzer_id);
 
     if (!posterUser) {
       return res.status(404).json({
@@ -732,12 +711,12 @@ const assignErrand = async (req, res) => {
         posterUser.pushToken,
         TEMPLATES.ERRAND_ACCEPTED(
           `${erranzerUser.firstName} ${erranzerUser.lastName}`,
-          errand.title
+          errand.title,
         ),
         {
           errandId: errand._id.toString(),
           type: "errand_accepted",
-        }
+        },
       );
     }
 
@@ -754,20 +733,19 @@ const assignErrand = async (req, res) => {
     // ==========================================
 
     if (errand.bookedBy) {
-      const guardianUser =
-        await UserModel.findById(errand.bookedBy);
+      const guardianUser = await UserModel.findById(errand.bookedBy);
 
       if (guardianUser?.pushToken) {
         await sendPushNotification(
           guardianUser.pushToken,
           TEMPLATES.ERRAND_ACCEPTED(
             `${erranzerUser.firstName} ${erranzerUser.lastName}`,
-            errand.title
+            errand.title,
           ),
           {
             errandId: errand._id.toString(),
             type: "errand_accepted",
-          }
+          },
         );
       }
 
@@ -781,18 +759,14 @@ const assignErrand = async (req, res) => {
     }
 
     return res.status(200).json({
-      message:
-        "This errand has been assigned to you successfully",
+      message: "This errand has been assigned to you successfully",
       errand,
     });
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
 
-    console.error(
-      "Error assigning errand:",
-      err
-    );
+    console.error("Error assigning errand:", err);
 
     return res.status(500).json({
       message: "Failed to assign errand",
@@ -861,11 +835,7 @@ const markCompleted = async (req, res) => {
 
     const currentUserId = userId.toString();
 
-
-    const payerId = errand.bookedBy
-      ? errand.bookedBy.toString()
-      : posterId;
-
+    const payerId = errand.bookedBy ? errand.bookedBy.toString() : posterId;
 
     // ==========================================
     // CHECK FAMILY GUARDIAN AUTHORIZATION
@@ -874,42 +844,34 @@ const markCompleted = async (req, res) => {
     let isGuardian = false;
 
     if (errand.bookedBy) {
-      isGuardian =
-        errand.bookedBy.toString() === currentUserId;
+      isGuardian = errand.bookedBy.toString() === currentUserId;
 
       if (isGuardian) {
         // Make sure the guardian is still linked
         // to the senior.
 
-        const familyLink =
-          await FamilyLinkModel.findOne({
-            guardianId: errand.bookedBy,
-            seniorId: errand.poster_id,
-            status: "active",
-          }).session(session);
-
+        const familyLink = await FamilyLinkModel.findOne({
+          guardianId: errand.bookedBy,
+          seniorId: errand.poster_id,
+          status: "active",
+        }).session(session);
       }
     }
-
 
     // ==========================================
     // DETERMINE WHO IS COMPLETING
     // ==========================================
 
-    const isPoster =
-      posterId === currentUserId;
+    const isPoster = posterId === currentUserId;
 
-    const isErranzer =
-      erranzerId === currentUserId;
+    const isErranzer = erranzerId === currentUserId;
 
     /*
       For a family errand, the guardian should also
       be allowed to act on behalf of the senior.
     */
 
-    const canActAsPoster =
-      isPoster || isGuardian;
-
+    const canActAsPoster = isPoster || isGuardian;
 
     // ==========================================
     // AUTHORIZATION
@@ -924,7 +886,6 @@ const markCompleted = async (req, res) => {
       });
     }
 
-
     // ==========================================
     // MARK WHO COMPLETED
     // ==========================================
@@ -937,31 +898,23 @@ const markCompleted = async (req, res) => {
       errand.erranzerCompleted = true;
     }
 
-
     // ==========================================
     // BOTH USERS COMPLETED
     // ==========================================
 
-    if (
-      errand.posterCompleted &&
-      errand.erranzerCompleted
-    ) {
-
+    if (errand.posterCompleted && errand.erranzerCompleted) {
       // ========================================
       // FIND PAYER WALLET
       // ========================================
 
-      const payerWallet =
-        await WalletModel.findOne({
-          userId: payerId,
-        }).session(session);
+      const payerWallet = await WalletModel.findOne({
+        userId: payerId,
+      }).session(session);
 
       // Erranzer wallet
-      const erranzerWallet =
-        await WalletModel.findOne({
-          userId: errand.erranzer_id,
-        }).session(session);
-
+      const erranzerWallet = await WalletModel.findOne({
+        userId: errand.erranzer_id,
+      }).session(session);
 
       if (!payerWallet || !erranzerWallet) {
         await session.abortTransaction();
@@ -972,46 +925,34 @@ const markCompleted = async (req, res) => {
         });
       }
 
-
       // ========================================
       // CALCULATE TOTAL HELD AMOUNT
       // ========================================
 
-      const budget =
-        Number(errand.budget || 0);
+      const budget = Number(errand.budget || 0);
 
-      const emergencySurcharge =
-        Number(
-          errand.emergencySurcharge || 0
-        );
+      const emergencySurcharge = Number(errand.emergencySurcharge || 0);
 
-      const totalHeld =
-        budget + emergencySurcharge;
-
+      const totalHeld = budget + emergencySurcharge;
 
       // ========================================
       // VALIDATE PENDING BALANCE
       // ========================================
 
-      if (
-        payerWallet.pending < totalHeld
-      ) {
+      if (payerWallet.pending < totalHeld) {
         await session.abortTransaction();
         session.endSession();
 
         return res.status(400).json({
-          message:
-            "Insufficient pending escrow balance",
+          message: "Insufficient pending escrow balance",
         });
       }
-
 
       // ========================================
       // RELEASE ESCROW
       // ========================================
 
       payerWallet.pending -= totalHeld;
-
 
       // ========================================
       // PLATFORM FEE
@@ -1030,30 +971,16 @@ const markCompleted = async (req, res) => {
       const platformFeeRate =
         errand.platformFeeOverride !== undefined &&
         errand.platformFeeOverride !== null
-          ? Number(
-              errand.platformFeeOverride
-            )
-          : 0.10;
+          ? Number(errand.platformFeeOverride)
+          : 0.1;
 
-
-      const platformFee =
-        Number(
-          (
-            budget *
-            platformFeeRate
-          ).toFixed(2)
-        );
-
+      const platformFee = Number((budget * platformFeeRate).toFixed(2));
 
       // ========================================
       // ERRANZER PAYOUT
       // ========================================
 
-      const payout =
-        Number(
-          (budget - platformFee).toFixed(2)
-        );
-
+      const payout = Number((budget - platformFee).toFixed(2));
 
       // ========================================
       // VALIDATE PAYOUT
@@ -1064,18 +991,15 @@ const markCompleted = async (req, res) => {
         session.endSession();
 
         return res.status(400).json({
-          message:
-            "Invalid platform fee configuration",
+          message: "Invalid platform fee configuration",
         });
       }
-
 
       // ========================================
       // CREDIT ERRANZER
       // ========================================
 
       erranzerWallet.balance += payout;
-
 
       // ========================================
       // SAVE WALLETS
@@ -1088,7 +1012,6 @@ const markCompleted = async (req, res) => {
       await erranzerWallet.save({
         session,
       });
-
 
       // ========================================
       // RECORD PAYER TRANSACTION
@@ -1105,27 +1028,20 @@ const markCompleted = async (req, res) => {
 
             status: "completed",
 
-            reference:
-              `ERRAND-${errand._id}`,
+            reference: `ERRAND-${errand._id}`,
 
-            corporateAccountId:
-              errand.corporateAccountId ||
-              null,
+            corporateAccountId: errand.corporateAccountId || null,
 
             metadata: {
               errandId: errand._id,
 
-              errandTitle:
-                errand.title,
+              errandTitle: errand.title,
 
-              releasedTo:
-                errand.erranzer_id,
+              releasedTo: errand.erranzer_id,
 
-              posterId:
-                errand.poster_id,
+              posterId: errand.poster_id,
 
-              bookedBy:
-                errand.bookedBy || null,
+              bookedBy: errand.bookedBy || null,
 
               budget,
 
@@ -1137,9 +1053,8 @@ const markCompleted = async (req, res) => {
         ],
         {
           session,
-        }
+        },
       );
-
 
       // ========================================
       // RECORD ERRANZER EARNING
@@ -1148,8 +1063,7 @@ const markCompleted = async (req, res) => {
       await TransactionModel.create(
         [
           {
-            userId:
-              errand.erranzer_id,
+            userId: errand.erranzer_id,
 
             type: "earning",
 
@@ -1157,20 +1071,16 @@ const markCompleted = async (req, res) => {
 
             status: "completed",
 
-            reference:
-              `ERRAND-${errand._id}`,
+            reference: `ERRAND-${errand._id}`,
 
             metadata: {
-              errandId:
-                errand._id,
+              errandId: errand._id,
 
-              errandTitle:
-                errand.title,
+              errandTitle: errand.title,
 
               platformFee,
 
-              grossAmount:
-                budget,
+              grossAmount: budget,
 
               emergencySurcharge,
             },
@@ -1178,9 +1088,8 @@ const markCompleted = async (req, res) => {
         ],
         {
           session,
-        }
+        },
       );
-
 
       // ========================================
       // MARK PAYMENT RELEASED
@@ -1188,14 +1097,12 @@ const markCompleted = async (req, res) => {
 
       errand.paymentReleased = true;
 
-
       // ========================================
       // MARK ERRAND COMPLETED
       // ========================================
 
       errand.status = "completed";
     }
-
 
     // ==========================================
     // STOP LIVE TRACKING
@@ -1212,7 +1119,6 @@ const markCompleted = async (req, res) => {
       errand.etaUpdatedAt = null;
     }
 
-
     // ==========================================
     // SAVE ERRAND
     // ==========================================
@@ -1220,7 +1126,6 @@ const markCompleted = async (req, res) => {
     await errand.save({
       session,
     });
-
 
     // ==========================================
     // COMMIT TRANSACTION
@@ -1230,114 +1135,78 @@ const markCompleted = async (req, res) => {
 
     session.endSession();
 
-
     // ==========================================
     // GET USERS FOR NOTIFICATIONS
     // ==========================================
 
-    const posterUser =
-      await UserModel.findById(
-        errand.poster_id
-      );
+    const posterUser = await UserModel.findById(errand.poster_id);
 
-    const erranzerUser =
-      await UserModel.findById(
-        errand.erranzer_id
-      );
+    const erranzerUser = await UserModel.findById(errand.erranzer_id);
 
-    const guardianUser =
-      errand.bookedBy
-        ? await UserModel.findById(
-            errand.bookedBy
-          )
-        : null;
-
+    const guardianUser = errand.bookedBy
+      ? await UserModel.findById(errand.bookedBy)
+      : null;
 
     // ==========================================
     // BOTH COMPLETED
     // ==========================================
 
-    if (
-      errand.posterCompleted &&
-      errand.erranzerCompleted
-    ) {
-
+    if (errand.posterCompleted && errand.erranzerCompleted) {
       // Notify erranzer
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
 
-          TEMPLATES.ERRAND_COMPLETED_ERRANZER(
-            errand.title
-          ),
+          TEMPLATES.ERRAND_COMPLETED_ERRANZER(errand.title),
 
           {
-            errandId:
-              errand._id.toString(),
+            errandId: errand._id.toString(),
 
-            type:
-              "errand_completed",
-          }
+            type: "errand_completed",
+          },
         );
       }
-
 
       // Notify senior/poster
       if (posterUser?.pushToken) {
         await sendPushNotification(
           posterUser.pushToken,
 
-          TEMPLATES.ERRAND_COMPLETED_POSTER(
-            errand.title
-          ),
+          TEMPLATES.ERRAND_COMPLETED_POSTER(errand.title),
 
           {
-            errandId:
-              errand._id.toString(),
+            errandId: errand._id.toString(),
 
-            type:
-              "errand_completed",
-          }
+            type: "errand_completed",
+          },
         );
       }
-
 
       // Notify guardian if different
       // from senior
       if (
         guardianUser &&
-        guardianUser._id.toString() !==
-          posterUser?._id.toString() &&
+        guardianUser._id.toString() !== posterUser?._id.toString() &&
         guardianUser.pushToken
       ) {
         await sendPushNotification(
           guardianUser.pushToken,
 
-          TEMPLATES.ERRAND_COMPLETED_POSTER(
-            errand.title
-          ),
+          TEMPLATES.ERRAND_COMPLETED_POSTER(errand.title),
 
           {
-            errandId:
-              errand._id.toString(),
+            errandId: errand._id.toString(),
 
-            type:
-              "errand_completed",
-          }
+            type: "errand_completed",
+          },
         );
       }
     }
 
-
     // ==========================================
     // POSTER/GUARDIAN COMPLETED FIRST
     // ==========================================
-
-    else if (
-      canActAsPoster &&
-      !errand.erranzerCompleted
-    ) {
-
+    else if (canActAsPoster && !errand.erranzerCompleted) {
       if (erranzerUser?.pushToken) {
         await sendPushNotification(
           erranzerUser.pushToken,
@@ -1347,30 +1216,22 @@ const markCompleted = async (req, res) => {
 
             posterUser
               ? `${posterUser.firstName} ${posterUser.lastName}`
-              : "The poster"
+              : "The poster",
           ),
 
           {
-            errandId:
-              errand._id.toString(),
+            errandId: errand._id.toString(),
 
-            type:
-              "errand_pre_completed",
-          }
+            type: "errand_pre_completed",
+          },
         );
       }
     }
 
-
     // ==========================================
     // ERRANZER COMPLETED FIRST
     // ==========================================
-
-    else if (
-      isErranzer &&
-      !errand.posterCompleted
-    ) {
-
+    else if (isErranzer && !errand.posterCompleted) {
       if (posterUser?.pushToken) {
         await sendPushNotification(
           posterUser.pushToken,
@@ -1378,126 +1239,93 @@ const markCompleted = async (req, res) => {
           TEMPLATES.ERRAND_PRE_COMPLETED(
             errand.title,
 
-            `${erranzerUser.firstName} ${erranzerUser.lastName}`
+            `${erranzerUser.firstName} ${erranzerUser.lastName}`,
           ),
 
           {
-            errandId:
-              errand._id.toString(),
+            errandId: errand._id.toString(),
 
-            type:
-              "errand_pre_completed",
-          }
+            type: "errand_pre_completed",
+          },
         );
       }
 
       // Also notify guardian
-      if (
-        guardianUser &&
-        guardianUser.pushToken
-      ) {
+      if (guardianUser && guardianUser.pushToken) {
         await sendPushNotification(
           guardianUser.pushToken,
 
           TEMPLATES.ERRAND_PRE_COMPLETED(
             errand.title,
 
-            `${erranzerUser.firstName} ${erranzerUser.lastName}`
+            `${erranzerUser.firstName} ${erranzerUser.lastName}`,
           ),
 
           {
-            errandId:
-              errand._id.toString(),
+            errandId: errand._id.toString(),
 
-            type:
-              "errand_pre_completed",
-          }
+            type: "errand_pre_completed",
+          },
         );
       }
     }
-
 
     // ==========================================
     // DATABASE NOTIFICATION
     // ==========================================
 
-    if (
-      errand.posterCompleted &&
-      errand.erranzerCompleted
-    ) {
-
+    if (errand.posterCompleted && errand.erranzerCompleted) {
       await sendNotification({
-        recipientId:
-          errand.poster_id,
+        recipientId: errand.poster_id,
 
-        senderId:
-          userId,
+        senderId: userId,
 
-        errandId:
-          errand._id,
+        errandId: errand._id,
 
-        type:
-          "errand_completed",
+        type: "errand_completed",
 
-        message:
-          `Your errand "${errand.title}" has been completed.`,
+        message: `Your errand "${errand.title}" has been completed.`,
       });
-
 
       // Notify guardian too
       if (
         errand.bookedBy &&
-        errand.bookedBy.toString() !==
-          errand.poster_id.toString()
+        errand.bookedBy.toString() !== errand.poster_id.toString()
       ) {
         await sendNotification({
-          recipientId:
-            errand.bookedBy,
+          recipientId: errand.bookedBy,
 
-          senderId:
-            userId,
+          senderId: userId,
 
-          errandId:
-            errand._id,
+          errandId: errand._id,
 
-          type:
-            "errand_completed",
+          type: "errand_completed",
 
-          message:
-            `The errand "${errand.title}" has been completed.`,
+          message: `The errand "${errand.title}" has been completed.`,
         });
       }
     }
-
 
     // ==========================================
     // RESPONSE
     // ==========================================
 
     return res.status(200).json({
-      message:
-        "Marked as completed successfully",
+      message: "Marked as completed successfully",
 
       errand,
     });
-
   } catch (err) {
-
     await session.abortTransaction();
 
     session.endSession();
 
-    console.error(
-      "Error Updating errand:",
-      err
-    );
+    console.error("Error Updating errand:", err);
 
     return res.status(500).json({
-      message:
-        "Failed to complete errand",
+      message: "Failed to complete errand",
 
-      error:
-        err.message,
+      error: err.message,
     });
   }
 };
