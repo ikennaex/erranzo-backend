@@ -58,9 +58,32 @@ const getAllAcceptedErrands = async (req, res) => {
   }
 }
 
+const updateAccountType = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { accountType } = req.body;
+
+    const user = await UserModel.findByIdAndUpdate(
+      id,
+      { accountType },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ success: true, user });
+  } catch (error) {
+    console.error("Error updating account type:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
 module.exports = {
   getUserProfile,
   updateUserProfile,
+  updateAccountType,
   getAllErrandsPosted,
   getAllAcceptedErrands
 };
