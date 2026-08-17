@@ -15,6 +15,11 @@ const userSchema = new Schema(
       enum: ["standard", "senior", "guardian"],
       default: "standard",
     },
+    corporateAccountId: {
+      type: Schema.Types.ObjectId,
+      ref: "CorporateAccount",
+      default: null,
+    },
     bio: {},
     description: {},
     wallet: {},

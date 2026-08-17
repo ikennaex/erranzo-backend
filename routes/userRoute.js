@@ -10,5 +10,4 @@ router.put('/:id', authToken, checkOwnership, updateUserProfile)
 router.put('/account-type/:id', authToken, checkOwnership, updateAccountType)
 
 
-
 module.exports = router 

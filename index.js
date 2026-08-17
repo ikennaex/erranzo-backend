@@ -63,6 +63,9 @@ app.use("/recurring", require("./routes/recurringRoutes"));
 // family routes
 app.use("/family", require("./routes/familyRoutes"));
 
+// corporate routes
+app.use("/corporate", require("./routes/corporateRoutes"));
+
 // favorite routes
 app.use("/favorites", require("./routes/favoriteRoute"));
 

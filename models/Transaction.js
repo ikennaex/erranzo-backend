@@ -21,6 +21,11 @@ const transactionSchema = new Schema(
       ],
       required: true,
     },
+    corporateAccountId: {
+      type: Schema.Types.ObjectId,
+      ref: "CorporateAccount",
+      default: null,
+    },
 
     amount: { type: Number, required: true },
 

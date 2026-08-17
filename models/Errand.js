@@ -77,6 +77,17 @@ const errandSchema = new Schema(
       ref: "User",
       default: null,
     },
+    corporateAccountId: {
+      type: Schema.Types.ObjectId,
+      ref: "CorporateAccount",
+      default: null,
+    },
+
+    corporateEmployeeId: {
+      type: Schema.Types.ObjectId,
+      ref: "CorporateEmployee",
+      default: null,
+    },
     posterCompleted: { type: Boolean, default: false },
     erranzerCompleted: { type: Boolean, default: false },
     disputeStatus: {

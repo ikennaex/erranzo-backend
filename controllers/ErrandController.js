@@ -12,6 +12,8 @@ const {
 const WalletModel = require("../models/Wallet");
 const TransactionModel = require("../models/Transaction");
 const FamilyLinkModel = require("../models/FamilyLink");
+const CorporateAccountModel = require("../models/CorporateAccount");
+const CorporateEmployeeModel = require("../models/CorporateEmployee");
 
 // post errand has wallet debit with escrow and also a transaction
 const postErrand = async (req, res) => {
@@ -30,90 +32,18 @@ const postErrand = async (req, res) => {
   } = req.body;
 
   try {
-    const guardianId = req.user.id;
+    const userId = req.user.id;
 
     // ==========================================
-    // DETERMINE WHO IS POSTING / PAYING
+    // GET CURRENT USER
     // ==========================================
 
-    let posterId = guardianId;
-    let bookedBy = null;
-    let payerId = guardianId;
+    const currentUser = await UserModel.findById(userId);
 
-    // ==========================================
-    // NORMAL ERRAND
-    // ==========================================
-
-    if (!onBehalfOf) {
-      posterId = guardianId;
-      bookedBy = null;
-      payerId = guardianId;
-    }
-
-    // ==========================================
-    // GUARDIAN BOOKING FOR SENIOR
-    // ==========================================
-
-    if (onBehalfOf) {
-      // ------------------------------------------
-      // Check guardian
-      // ------------------------------------------
-
-      const guardian = await UserModel.findById(guardianId);
-
-      if (!guardian) {
-        return res.status(404).json({
-          message: "Guardian account not found",
-        });
-      }
-
-      if (guardian.accountType !== "guardian") {
-        return res.status(403).json({
-          message: "Only guardians can book on behalf of seniors",
-        });
-      }
-
-      // ------------------------------------------
-      // Check senior
-      // ------------------------------------------
-
-      const senior = await UserModel.findById(onBehalfOf);
-
-      if (!senior) {
-        return res.status(404).json({
-          message: "Senior account not found",
-        });
-      }
-
-      if (senior.accountType !== "senior") {
-        return res.status(400).json({
-          message: "The selected account is not a senior account",
-        });
-      }
-
-      // ------------------------------------------
-      // Check active FamilyLink
-      // ------------------------------------------
-
-      const familyLink = await FamilyLinkModel.findOne({
-        guardianId: guardianId,
-        seniorId: onBehalfOf,
-        status: "active",
+    if (!currentUser) {
+      return res.status(404).json({
+        message: "User not found",
       });
-
-      if (!familyLink) {
-        return res.status(403).json({
-          message: "You do not have an active family link with this senior",
-        });
-      }
-
-      // ------------------------------------------
-      // Set ownership / payment
-      // ------------------------------------------
-
-      posterId = senior._id;
-      bookedBy = guardianId;
-      payerId = guardianId;
     }
 
     // ==========================================
@@ -129,54 +59,336 @@ const postErrand = async (req, res) => {
     }
 
     // ==========================================
+    // DETERMINE ACCOUNT TYPE
+    // ==========================================
+
+    const isCorporateUser =
+      !!currentUser.corporateAccountId;
+
+    // ==========================================
+    // FAMILY / NORMAL VARIABLES
+    // ==========================================
+
+    let posterId = userId;
+    let bookedBy = null;
+    let payerId = userId;
+
+    // Corporate variables
+    let corporateAccountId = null;
+    let corporateEmployeeId = null;
+
+    // ==========================================
+    // CORPORATE ERRAND
+    // ==========================================
+
+    if (isCorporateUser) {
+      // ----------------------------------------
+      // Corporate users cannot use family
+      // booking at the same time
+      // ----------------------------------------
+
+      if (onBehalfOf) {
+        return res.status(400).json({
+          message:
+            "Corporate employees cannot create errands on behalf of a senior",
+        });
+      }
+
+      corporateAccountId =
+        currentUser.corporateAccountId;
+
+      // ----------------------------------------
+      // Find corporate account
+      // ----------------------------------------
+
+      const corporateAccount =
+        await CorporateAccountModel.findById(
+          corporateAccountId,
+        );
+
+      if (!corporateAccount) {
+        return res.status(404).json({
+          message: "Corporate account not found",
+        });
+      }
+
+      // ----------------------------------------
+      // Check corporate account status
+      // ----------------------------------------
+
+      if (corporateAccount.status !== "active") {
+        return res.status(403).json({
+          message:
+            "Your corporate account is not active",
+        });
+      }
+
+      // ----------------------------------------
+      // Find employee record
+      // ----------------------------------------
+
+      const corporateEmployee =
+        await CorporateEmployeeModel.findOne({
+          corporateAccountId,
+          userId,
+          status: "active",
+        });
+
+      if (!corporateEmployee) {
+        return res.status(403).json({
+          message:
+            "You are not an active employee of this corporate account",
+        });
+      }
+
+      corporateEmployeeId =
+        corporateEmployee._id;
+
+      // ----------------------------------------
+      // Check individual spending limit
+      //
+      // ATOMIC CHECK + INCREMENT
+      // ----------------------------------------
+
+      const updatedEmployee =
+        await CorporateEmployeeModel.findOneAndUpdate(
+          {
+            _id: corporateEmployee._id,
+
+            status: "active",
+
+            $or: [
+              {
+                individualSpendingLimit: 0,
+              },
+              {
+                $expr: {
+                  $lte: [
+                    {
+                      $add: [
+                        "$currentMonthSpend",
+                        parsedBudget,
+                      ],
+                    },
+                    "$individualSpendingLimit",
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            $inc: {
+              currentMonthSpend: parsedBudget,
+            },
+          },
+          {
+            new: true,
+          },
+        );
+
+      if (!updatedEmployee) {
+        return res.status(400).json({
+          message:
+            "This errand would exceed your individual monthly spending limit",
+        });
+      }
+
+      // ----------------------------------------
+      // Check company spending limit
+      //
+      // ATOMIC CHECK + INCREMENT
+      // ----------------------------------------
+
+      const updatedCorporateAccount =
+        await CorporateAccountModel.findOneAndUpdate(
+          {
+            _id: corporateAccountId,
+
+            status: "active",
+
+            $or: [
+              {
+                monthlySpendingLimit: 0,
+              },
+              {
+                $expr: {
+                  $lte: [
+                    {
+                      $add: [
+                        "$currentMonthSpend",
+                        parsedBudget,
+                      ],
+                    },
+                    "$monthlySpendingLimit",
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            $inc: {
+              currentMonthSpend: parsedBudget,
+            },
+          },
+          {
+            new: true,
+          },
+        );
+
+      if (!updatedCorporateAccount) {
+        // IMPORTANT:
+        // We already incremented the employee above.
+        // Roll it back if the company limit fails.
+
+        await CorporateEmployeeModel.findByIdAndUpdate(
+          corporateEmployeeId,
+          {
+            $inc: {
+              currentMonthSpend: -parsedBudget,
+            },
+          },
+        );
+
+        return res.status(400).json({
+          message:
+            "This errand would exceed the company's monthly spending limit",
+        });
+      }
+
+      // ----------------------------------------
+      // Corporate user is the poster
+      // ----------------------------------------
+
+      posterId = userId;
+      bookedBy = null;
+      payerId = null;
+    }
+
+    // ==========================================
+    // NORMAL / FAMILY ERRAND
+    // ==========================================
+
+    if (!isCorporateUser) {
+      // ========================================
+      // NORMAL ERRAND
+      // ========================================
+
+      if (!onBehalfOf) {
+        posterId = userId;
+        bookedBy = null;
+        payerId = userId;
+      }
+
+      // ========================================
+      // GUARDIAN BOOKING FOR SENIOR
+      // ========================================
+
+      if (onBehalfOf) {
+        const guardian =
+          await UserModel.findById(userId);
+
+        if (!guardian) {
+          return res.status(404).json({
+            message: "Guardian account not found",
+          });
+        }
+
+        if (
+          guardian.accountType !==
+          "guardian"
+        ) {
+          return res.status(403).json({
+            message:
+              "Only guardians can book on behalf of seniors",
+          });
+        }
+
+        const senior =
+          await UserModel.findById(onBehalfOf);
+
+        if (!senior) {
+          return res.status(404).json({
+            message: "Senior account not found",
+          });
+        }
+
+        if (
+          senior.accountType !== "senior"
+        ) {
+          return res.status(400).json({
+            message:
+              "The selected account is not a senior account",
+          });
+        }
+
+        const familyLink =
+          await FamilyLinkModel.findOne({
+            guardianId: userId,
+            seniorId: onBehalfOf,
+            status: "active",
+          });
+
+        if (!familyLink) {
+          return res.status(403).json({
+            message:
+              "You do not have an active family link with this senior",
+          });
+        }
+
+        posterId = senior._id;
+        bookedBy = userId;
+        payerId = userId;
+      }
+    }
+
+    // ==========================================
     // EMERGENCY SETTINGS
     // ==========================================
 
-    const emergencyRate = Number(process.env.EMERGENCY_SURCHARGE_RATE) || 0.25;
+    const emergencyRate =
+      Number(
+        process.env.EMERGENCY_SURCHARGE_RATE,
+      ) || 0.25;
 
-    const emergencyMinBudget = Number(process.env.EMERGENCY_MIN_BUDGET) || 30;
+    const emergencyMinBudget =
+      Number(
+        process.env.EMERGENCY_MIN_BUDGET,
+      ) || 30;
 
     let emergencySurcharge = 0;
     let emergencyExpiresAt = null;
 
-    let finalPriority = priority || "normal";
+    let finalPriority =
+      priority || "normal";
 
     // ==========================================
     // EMERGENCY VALIDATION
     // ==========================================
 
     if (isEmergency === true) {
-      // ----------------------------------------
-      // Minimum emergency budget
-      // ----------------------------------------
-
       if (parsedBudget < emergencyMinBudget) {
         return res.status(400).json({
           message: `Emergency errands require a minimum budget of ${emergencyMinBudget} CAD`,
         });
       }
 
-      // ----------------------------------------
-      // Maximum 3 emergency errands
-      // within 24 hours
-      // ----------------------------------------
-
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const twentyFourHoursAgo =
+        new Date(
+          Date.now() -
+            24 * 60 * 60 * 1000,
+        );
 
       let emergencyQuery;
 
-      // If guardian is booking for a senior,
-      // count the guardian's emergency bookings.
       if (bookedBy) {
         emergencyQuery = {
-          bookedBy: bookedBy,
+          bookedBy,
           isEmergency: true,
           createdAt: {
             $gte: twentyFourHoursAgo,
           },
         };
       } else {
-        // Normal user
         emergencyQuery = {
           poster_id: posterId,
           isEmergency: true,
@@ -186,141 +398,277 @@ const postErrand = async (req, res) => {
         };
       }
 
-      const emergencyCount = await ErrandModel.countDocuments(emergencyQuery);
+      const emergencyCount =
+        await ErrandModel.countDocuments(
+          emergencyQuery,
+        );
 
       if (emergencyCount >= 3) {
         return res.status(429).json({
-          message: "You can only create 3 emergency errands within 24 hours",
+          message:
+            "You can only create 3 emergency errands within 24 hours",
         });
       }
 
-      // ----------------------------------------
-      // Calculate emergency surcharge
-      // ----------------------------------------
+      emergencySurcharge = Number(
+        (
+          parsedBudget *
+          emergencyRate
+        ).toFixed(2),
+      );
 
-      emergencySurcharge = Number((parsedBudget * emergencyRate).toFixed(2));
+      emergencyExpiresAt =
+        new Date(
+          Date.now() +
+            2 * 60 * 60 * 1000,
+        );
 
-      // ----------------------------------------
-      // Emergency expires after 2 hours
-      // ----------------------------------------
-
-      emergencyExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
-
-      // Emergency errands are always urgent
       finalPriority = "urgent";
     }
 
     // ==========================================
-    // CALCULATE TOTAL REQUIRED
+    // TOTAL REQUIRED
     // ==========================================
 
-    const totalRequired = parsedBudget + emergencySurcharge;
+    const totalRequired =
+      parsedBudget +
+      emergencySurcharge;
 
     // ==========================================
-    // CHECK PAYER WALLET
+    // CORPORATE WALLET
     // ==========================================
 
-    const wallet = await WalletModel.findOne({
-      userId: payerId,
-    });
+    if (isCorporateUser) {
+      const corporateWallet =
+        await WalletModel.findOne({
+          corporateAccountId,
+        });
 
-    if (!wallet || wallet.balance < totalRequired) {
-      return res.status(400).json({
-        message: "Insufficient wallet balance",
-        required: totalRequired,
-        available: wallet ? wallet.balance : 0,
-      });
+      if (
+        !corporateWallet ||
+        corporateWallet.balance <
+          totalRequired
+      ) {
+        // Roll back corporate spending
+
+        await CorporateEmployeeModel.findByIdAndUpdate(
+          corporateEmployeeId,
+          {
+            $inc: {
+              currentMonthSpend:
+                -parsedBudget,
+            },
+          },
+        );
+
+        await CorporateAccountModel.findByIdAndUpdate(
+          corporateAccountId,
+          {
+            $inc: {
+              currentMonthSpend:
+                -parsedBudget,
+            },
+          },
+        );
+
+        return res.status(400).json({
+          message:
+            "Insufficient corporate wallet balance",
+          required: totalRequired,
+          available: corporateWallet
+            ? corporateWallet.balance
+            : 0,
+        });
+      }
+
+      // ----------------------------------------
+      // Deduct from corporate wallet
+      // ----------------------------------------
+
+      corporateWallet.balance -=
+        totalRequired;
+
+      corporateWallet.pending +=
+        totalRequired;
+
+      await corporateWallet.save();
+    }
+
+    // ==========================================
+    // NORMAL / FAMILY WALLET
+    // ==========================================
+
+    if (!isCorporateUser) {
+      const wallet =
+        await WalletModel.findOne({
+          userId: payerId,
+        });
+
+      if (
+        !wallet ||
+        wallet.balance <
+          totalRequired
+      ) {
+        return res.status(400).json({
+          message:
+            "Insufficient wallet balance",
+          required: totalRequired,
+          available: wallet
+            ? wallet.balance
+            : 0,
+        });
+      }
     }
 
     // ==========================================
     // CREATE ERRAND
     // ==========================================
 
-    const newErrand = await ErrandModel.create({
-      title,
-      description,
+    const newErrand =
+      await ErrandModel.create({
+        title,
 
-      budget: parsedBudget,
+        description,
 
-      deadline,
+        budget: parsedBudget,
 
-      category,
+        deadline,
 
-      location,
+        category,
 
-      address,
+        location,
 
-      status: status || "open",
+        address,
 
-      priority: finalPriority,
+        status: status || "open",
 
-      // ----------------------------------------
-      // FAMILY ACCOUNT FIELDS
-      // ----------------------------------------
+        priority: finalPriority,
 
-      poster_id: posterId,
+        // --------------------------------------
+        // FAMILY ACCOUNT
+        // --------------------------------------
 
-      bookedBy: bookedBy,
+        poster_id: posterId,
 
-      onBehalfOf: onBehalfOf || null,
+        bookedBy,
 
-      // ----------------------------------------
-      // EMERGENCY FIELDS
-      // ----------------------------------------
+        onBehalfOf:
+          onBehalfOf || null,
 
-      isEmergency: isEmergency === true,
+        // --------------------------------------
+        // CORPORATE ACCOUNT
+        // --------------------------------------
 
-      emergencySurcharge,
+        corporateAccountId:
+          corporateAccountId,
 
-      emergencyExpiresAt,
-    });
+        corporateEmployeeId:
+          corporateEmployeeId,
 
-    // Populate User references
+        // --------------------------------------
+        // EMERGENCY
+        // --------------------------------------
+
+        isEmergency:
+          isEmergency === true,
+
+        emergencySurcharge,
+
+        emergencyExpiresAt,
+      });
+
+    // ==========================================
+    // POPULATE
+    // ==========================================
+
     await newErrand.populate([
       {
         path: "poster_id",
-        select: "firstName lastName",
+        select:
+          "firstName lastName accountType",
       },
+
       {
         path: "bookedBy",
-        select: "firstName lastName",
+        select:
+          "firstName lastName accountType",
       },
+
       {
         path: "onBehalfOf",
-        select: "firstName lastName",
+        select:
+          "firstName lastName accountType",
+      },
+
+      {
+        path: "corporateAccountId",
+        select:
+          "companyName companyEmail status",
+      },
+
+      {
+        path: "corporateEmployeeId",
+        populate: {
+          path: "userId",
+          select:
+            "firstName lastName email",
+        },
       },
     ]);
 
-    const erranzers = await UserModel.find({
-      role: "erranzer",
-      pushToken: {
-        $exists: true,
-        $ne: null,
-      },
-      _id: {
-        $ne: posterId,
-      },
-    }).select("pushToken");
+    // ==========================================
+    // NOTIFY ERRANZERS
+    // ==========================================
+
+    const erranzers =
+      await UserModel.find({
+        role: "erranzer",
+
+        pushToken: {
+          $exists: true,
+          $ne: null,
+        },
+
+        _id: {
+          $ne: posterId,
+        },
+      }).select("pushToken");
 
     if (erranzers.length > 0) {
-      const tokens = erranzers.map((e) => e.pushToken);
+      const tokens =
+        erranzers.map(
+          (e) => e.pushToken,
+        );
 
       if (isEmergency === true) {
-        await sendPushNotification(tokens, "Emergency Errand", {
-          errandId: newErrand._id.toString(),
+        await sendPushNotification(
+          tokens,
+          "Emergency Errand",
+          {
+            errandId:
+              newErrand._id.toString(),
 
-          type: "emergency_errand",
+            type:
+              "emergency_errand",
 
-          channelId: "emergency",
-        });
+            channelId:
+              "emergency",
+          },
+        );
       } else {
         await sendPushNotification(
           tokens,
-          TEMPLATES.ERRAND_POSTED(newErrand.title),
-          {
-            errandId: newErrand._id.toString(),
 
-            type: "errand_posted",
+          TEMPLATES.ERRAND_POSTED(
+            newErrand.title,
+          ),
+
+          {
+            errandId:
+              newErrand._id.toString(),
+
+            type:
+              "errand_posted",
           },
         );
       }
@@ -333,15 +681,18 @@ const postErrand = async (req, res) => {
     await sendNotification({
       recipientId: "all",
 
-      senderId: guardianId,
+      senderId: userId,
 
-      errandId: newErrand._id,
+      errandId:
+        newErrand._id,
 
-      type: isEmergency ? "emergency_errand" : "errand_posted",
+      type: isEmergency
+        ? "emergency_errand"
+        : "errand_posted",
 
       message: isEmergency
         ? `Emergency errand posted: ${newErrand.title}`
-        : `${req.user.name || "Someone"} just posted a new errand: ${newErrand.title}`,
+        : `${currentUser.firstName} ${currentUser.lastName} just posted a new errand: ${newErrand.title}`,
     });
 
     // ==========================================
@@ -356,10 +707,15 @@ const postErrand = async (req, res) => {
       newErrand,
     });
   } catch (error) {
-    console.error("Post errand error:", error);
+    console.error(
+      "Post errand error:",
+      error,
+    );
 
     return res.status(500).json({
-      message: "Failed to post errand",
+      message:
+        "Failed to post errand",
+
       error: error.message,
     });
   }

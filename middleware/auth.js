@@ -1,6 +1,7 @@
 // Authentication middleware
 const ErrandModel = require("../models/Errand");
 const UserModel = require("../models/User");
+const CorporateEmployeeModel = require("../models/CorporateEmployee");
 require("dotenv").config();
 
 const jwt = require("jsonwebtoken");
@@ -99,4 +100,66 @@ const adminAuth = (req, res, next) => {
   }
 };
 
-module.exports = { authToken, checkOwnership, checkErrandOwnership, adminAuth };
+const corporateAuth = (
+  requiredRoles = [],
+) => {
+  return async (req, res, next) => {
+    try {
+      const userId = req.user.id;
+
+      const employee =
+        await CorporateEmployeeModel.findOne({
+          userId,
+          status: "active",
+        }).populate("corporateAccountId");
+
+      if (!employee) {
+        return res.status(403).json({
+          message:
+            "You do not belong to an active corporate account",
+        });
+      }
+
+      if (
+        requiredRoles.length > 0 &&
+        !requiredRoles.includes(employee.role)
+      ) {
+        return res.status(403).json({
+          message:
+            "You do not have permission to perform this action",
+        });
+      }
+
+      if (
+        !employee.corporateAccountId ||
+        employee.corporateAccountId.status !==
+          "active"
+      ) {
+        return res.status(403).json({
+          message:
+            "Corporate account is not active",
+        });
+      }
+
+      req.corporateEmployee = employee;
+
+      req.corporateAccount =
+        employee.corporateAccountId;
+
+      next();
+    } catch (error) {
+      console.error(
+        "Corporate auth error:",
+        error,
+      );
+
+      return res.status(500).json({
+        message:
+          "Corporate authorization failed",
+      });
+    }
+  };
+};
+
+
+module.exports = { authToken, checkOwnership, checkErrandOwnership, adminAuth, corporateAuth };
