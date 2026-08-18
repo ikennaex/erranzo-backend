@@ -84,20 +84,43 @@ const registerCorporateAccount = async (req, res) => {
 
 const corporateEmployeeInvitation = async (req, res) => {
   try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Employee email is required",
+      });
+    }
+
+    // Find the user being invited
+    const existingUser = await UserModel.findOne({
+      email: email.toLowerCase(),
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // Make sure they aren't already part of a corporate account
+    if (existingUser.corporateAccountId) {
+      return res.status(400).json({
+        message: "User already belongs to a corporate account",
+      });
+    }
+
     const token = crypto.randomBytes(32).toString("hex");
 
-    await CorporateEmployeeModel.create({
+    const employee = await CorporateEmployeeModel.create({
       corporateAccountId: req.corporateAccount._id,
-
       userId: existingUser._id,
-
       role: "employee",
-
       status: "invited",
-
       inviteToken: token,
-
-      inviteExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      inviteExpiresAt: new Date(
+        Date.now() + 48 * 60 * 60 * 1000
+      ),
     });
 
     await sendCorporateInvitationMail({
@@ -108,11 +131,16 @@ const corporateEmployeeInvitation = async (req, res) => {
       token: employee.inviteToken,
       inviteExpiresAt: employee.inviteExpiresAt,
     });
+
+    return res.status(200).json({
+      message: "Corporate invitation sent successfully",
+    });
+
   } catch (err) {
-    console.log(err);
+    console.error("Corporate employee invitation error:", err);
 
     return res.status(500).json({
-      message: "Failed to register corporate account",
+      message: "Failed to send corporate invitation",
       error: err.message,
     });
   }
