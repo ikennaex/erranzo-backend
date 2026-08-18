@@ -84,7 +84,7 @@ const registerCorporateAccount = async (req, res) => {
 
 const corporateEmployeeInvitation = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, individualSpendingLimit, role} = req.body;
 
     if (!email) {
       return res.status(400).json({
@@ -114,8 +114,9 @@ const corporateEmployeeInvitation = async (req, res) => {
 
     const employee = await CorporateEmployeeModel.create({
       corporateAccountId: req.corporateAccount._id,
+      individualSpendingLimit: individualSpendingLimit || null,
       userId: existingUser._id,
-      role: "employee",
+      role: role || "employee",
       status: "invited",
       inviteToken: token,
       inviteExpiresAt: new Date(
