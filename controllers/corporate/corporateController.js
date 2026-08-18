@@ -188,6 +188,7 @@ const acceptCorporateInvitation = async (req, res) => {
       employee,
     });
   } catch (error) {
+    console.log("Accept corporate invitation error:", error);
     return res.status(500).json({
       message: "Failed to accept invitation",
       error: error.message,
