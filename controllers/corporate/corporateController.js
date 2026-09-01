@@ -61,6 +61,7 @@ const registerCorporateAccount = async (req, res) => {
 
     // Create corporate wallet
     await WalletModel.create({
+      userId: userId,
       corporateAccountId: corporateAccount._id,
       type: "corporate",
       balance: 0,

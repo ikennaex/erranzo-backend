@@ -21,12 +21,15 @@ const register = async (req, res) => {
     if (existingUser) {
       if (existingUser.username === username) {
         return res.status(400).json({ message: "Username already exists" });
+        console.log("Username already exists");
       }
       if (existingUser.email === email) {
         return res.status(400).json({ message: "Email already exists" });
+        console.log("Email already exists");
       }
       if (existingUser.phoneNumber === phoneNumber) {
         return res.status(400).json({ message: "Phone number already exists" });
+        console.log("Phone number already exists");
       }
     }
 
