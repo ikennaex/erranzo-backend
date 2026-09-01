@@ -68,6 +68,18 @@ const userSchema = new Schema(
     resetPasswordExpires: {
       type: Date,
     },
+    loginOtp: {
+      type: String,
+      default: null,
+    },
+    loginOtpExpires: {
+      type: Date,
+      default: null,
+    },
+    loginOtpAttempts: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );

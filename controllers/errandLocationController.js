@@ -97,6 +97,14 @@ const updateErrandLocation = async (req, res) => {
       etaText: etaText || null,
       erranzerLocation: errand.erranzerLocation,
     });
+    if (errand.erranzer_id) {
+      io.to(errand.erranzer_id.toString()).emit("eta_update", {
+        errandId: errand._id.toString(),
+        etaMinutes: parsedEta,
+        etaText: etaText || null,
+        erranzerLocation: errand.erranzerLocation,
+      });
+    }
 
     return res.status(200).json({
       message: "Location and ETA updated successfully",
@@ -151,7 +159,7 @@ const getErrandEta = async (req, res) => {
       etaMinutes: errand.etaMinutes,
       etaUpdatedAt: errand.etaUpdatedAt,
 
-      erranzerLocation: isPoster ? errand.erranzerLocation : undefined,
+      erranzerLocation: errand.erranzerLocation,
 
       isStale,
     });
