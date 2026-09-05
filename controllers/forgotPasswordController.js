@@ -2,6 +2,9 @@ const crypto = require("crypto");
 const sendResetEmail = require("../utils/emails/resetPasswordMail");
 const UserModel = require("../models/User");
 
+const NEUTRAL_RESET_MESSAGE =
+  "If an account exists for this email, we've sent a password reset link.";
+
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -14,37 +17,38 @@ const forgotPassword = async (req, res) => {
       email: email.toLowerCase().trim(),
     });
 
-    if (!user) {
-      return res.status(404).json({
-        message: "No user found with this email",
-      });
+    if (user) {
+      // Generate token
+      const resetToken = crypto.randomBytes(32).toString("hex");
+
+      const hashedToken = crypto
+        .createHash("sha256")
+        .update(resetToken)
+        .digest("hex");
+
+      // Save hashed token & expiry to DB
+      user.resetPasswordToken = hashedToken;
+      user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+
+      await user.save();
+
+      // Reset password URL
+      const resetUrl = `https://erranzo.com/reset-password/${resetToken}`;
+
+      // Send reset email through Resend
+      try {
+        await sendResetEmail({
+          email: user.email,
+          resetUrl,
+        });
+      } catch (mailErr) {
+        console.error("Failed to send reset email:", mailErr);
+      }
     }
 
-    // Generate token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
-
-    // Save hashed token & expiry to DB
-    user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
-
-    await user.save();
-
-    // Reset password URL
-    const resetUrl = `https://erranzo.com/reset-password/${resetToken}`;
-
-    // Send reset email through Resend
-    await sendResetEmail({
-      email: user.email,
-      resetUrl,
-    });
-
-    res.status(200).json({
-      message: "Password reset link sent to your email",
+    // Always return identical status and neutral message regardless of user existence
+    return res.status(200).json({
+      message: NEUTRAL_RESET_MESSAGE,
     });
   } catch (error) {
     console.error("Error in forgot password:", error);
