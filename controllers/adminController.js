@@ -8,7 +8,7 @@ const DisputeModel = require("../models/Dispute");
 
 const adminGetAllErrands = async (req, res) => {
   try {
-    const errands = await ErrandModel.find({ status: "in_progress" }).populate({
+    const errands = await ErrandModel.find({}).populate({
       path: "erranzer_id",
     });
     res.status(200).json({ message: "Fetched errands", errands });
