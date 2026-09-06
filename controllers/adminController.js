@@ -1,6 +1,10 @@
+const mongoose = require("mongoose");
 const ErrandModel = require("../models/Errand");
 const ErranzerApplicationModel = require("../models/ErranzerApplication");
 const UserModel = require("../models/User");
+const ErrandChatModel = require("../models/ErrandChat");
+const ErrandPhotoModel = require("../models/ErrandPhoto");
+const DisputeModel = require("../models/Dispute");
 
 const adminGetAllErrands = async (req, res) => {
   try {
@@ -75,16 +79,61 @@ const getErranzers = async (req, res) => {
 const getErranzerDetails = async (req, res) => {
   try {
     const { id } = req.params;
-    const erranzer = await UserModel.findById(id);
-    if (!erranzer) {
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+
+    let user = await UserModel.findById(id).select("-password");
+    let application = null;
+
+    if (user) {
+      application = await ErranzerApplicationModel.findOne({ userId: user._id }).sort({ createdAt: -1 });
+    } else {
+      application = await ErranzerApplicationModel.findById(id);
+      if (application) {
+        user = await UserModel.findById(application.userId).select("-password");
+      }
+    }
+
+    if (!user) {
       return res.status(404).json({ message: "Erranzer not found" });
     }
-    res.status(200).json({ erranzer });
+
+    const details = {
+      _id: user._id,
+      name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phoneNumber: user.phoneNumber || application?.phone || null,
+      kycStatus: user.kycStatus,
+      created_at: user.createdAt,
+      createdAt: user.createdAt,
+      bio: application?.bio || user.bio || "",
+      skills: application?.skills || [],
+      governmentId: {
+        frontIdUrl: application?.frontIdUrl || null,
+        backIdUrl: application?.backIdUrl || null,
+      },
+      frontIdUrl: application?.frontIdUrl || null,
+      backIdUrl: application?.backIdUrl || null,
+      availableDays: application?.availability?.days || [],
+      availability: application?.availability || null,
+      role: user.role,
+      status: user.status,
+      applicationStatus: application?.status || user.applicationStatus,
+      applicationId: application?._id || null,
+      user,
+      application,
+    };
+
+    res.status(200).json({ erranzer: details, ...details });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error getting erranzer details" });
+    console.error("Error getting erranzer details:", err);
+    res.status(500).json({ message: "Error getting erranzer details", error: err.message });
   }
-}
+};
 
 
 const getUnverifiedErranzers = async (req, res) => {
@@ -171,26 +220,32 @@ const userManagemnent = async (req, res) => {
   const { status } = req.body;
 
   try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
     const erranzer = await UserModel.findById(id);
     if (!erranzer) {
-      return res.status(404).json({ message: "Erranzer not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
     if (status === "suspended") {
       erranzer.status = "suspended";
-      res.status(200).json({ message: "User suspended" });
-    }
-
-    else if (status === "active") {
+      await erranzer.save();
+      return res.status(200).json({ message: "User suspended" });
+    } else if (status === "active") {
       erranzer.status = "active";
-      res.status(200).json({ message: "User activated" });
+      await erranzer.save();
+      return res.status(200).json({ message: "User activated" });
+    } else {
+      return res.status(400).json({ message: "Invalid status provided. Use 'active' or 'suspended'." });
     }
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error managing user" });
   }
-}
+};
 
 const getAnalytics = async (req, res) => {
   try {
@@ -319,6 +374,97 @@ const getAnalytics = async (req, res) => {
   }
 };
 
+const adminDeleteErrand = async (req, res) => {
+  const { id } = req.params;
 
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid errand ID" });
+    }
 
-module.exports = { adminGetAllErrands, getTotalErranzers, getTotalUsers, getUsers, getUserDetails, getErranzers, getErranzerDetails, getUnverifiedErranzers, approveorRejectErranzer, userManagemnent, getAnalytics };
+    const errand = await ErrandModel.findById(id);
+    if (!errand) {
+      return res.status(404).json({ message: "Errand not found" });
+    }
+
+    // Check if errand is in progress and payment is held
+    if (errand.status === "in_progress" && errand.paymentStatus === "held") {
+      return res.status(400).json({
+        message: `Cannot delete errand: The errand is currently '${errand.status}' with payment status '${errand.paymentStatus}'. Please resolve or complete the errand before deleting.`,
+        status: errand.status,
+        paymentStatus: errand.paymentStatus,
+      });
+    }
+
+    // Clean up associated resources: photos, chat history, disputes
+    await Promise.all([
+      ErrandPhotoModel.deleteMany({ errandId: id }),
+      ErrandChatModel.deleteMany({ errandId: id }),
+      DisputeModel.deleteMany({ errandId: id }),
+    ]);
+
+    const deletedErrand = await ErrandModel.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      message: "Errand deleted successfully",
+      deletedErrand,
+    });
+  } catch (error) {
+    console.error("Admin delete errand error:", error);
+    return res.status(500).json({
+      message: "Failed to delete errand",
+      error: error.message,
+    });
+  }
+};
+
+const adminGetErrandChatHistory = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid errand ID" });
+    }
+
+    const errand = await ErrandModel.findById(id)
+      .populate("poster_id", "firstName lastName email phoneNumber role")
+      .populate("erranzer_id", "firstName lastName email phoneNumber role");
+
+    if (!errand) {
+      return res.status(404).json({ message: "Errand not found" });
+    }
+
+    const messages = await ErrandChatModel.find({ errandId: id })
+      .populate("senderId", "firstName lastName email role")
+      .populate("receiverId", "firstName lastName email role")
+      .sort({ timestamp: 1 });
+
+    return res.status(200).json({
+      errand,
+      messages,
+      totalMessages: messages.length,
+    });
+  } catch (error) {
+    console.error("Admin get errand chat error:", error);
+    return res.status(500).json({
+      message: "Failed to fetch chat history",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  adminGetAllErrands,
+  getTotalErranzers,
+  getTotalUsers,
+  getUsers,
+  getUserDetails,
+  getErranzers,
+  getErranzerDetails,
+  getUnverifiedErranzers,
+  approveorRejectErranzer,
+  userManagemnent,
+  getAnalytics,
+  adminDeleteErrand,
+  adminGetErrandChatHistory,
+};

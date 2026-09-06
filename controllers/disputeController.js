@@ -1,5 +1,8 @@
+const mongoose = require("mongoose");
 const DisputeModel = require("../models/Dispute");
 const ErrandModel = require("../models/Errand");
+const ErrandChatModel = require("../models/ErrandChat");
+const ErrandPhotoModel = require("../models/ErrandPhoto");
 const TransactionModel = require("../models/Transaction");
 const WalletModel = require("../models/Wallet");
 const UserModel = require("../models/User");
@@ -93,8 +96,14 @@ const getDisputes = async (req, res) => {
     }
 
     const disputes = await DisputeModel.find(query)
-      .populate("errandId")
-      .populate("raisedBy")
+      .populate({
+        path: "errandId",
+        populate: [
+          { path: "poster_id", select: "firstName lastName email phoneNumber" },
+          { path: "erranzer_id", select: "firstName lastName email phoneNumber" },
+        ],
+      })
+      .populate("raisedBy", "firstName lastName email phoneNumber role")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({ disputes });
@@ -211,4 +220,55 @@ const resolveDispute = async (req, res) => {
   }
 };
 
-module.exports = { createDispute, getDisputes, resolveDispute };
+const getDisputeDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid dispute ID" });
+    }
+
+    const dispute = await DisputeModel.findById(id)
+      .populate("raisedBy", "firstName lastName email phoneNumber role")
+      .populate({
+        path: "errandId",
+        populate: [
+          { path: "poster_id", select: "firstName lastName email phoneNumber role" },
+          { path: "erranzer_id", select: "firstName lastName email phoneNumber role" },
+        ],
+      });
+
+    if (!dispute) {
+      return res.status(404).json({ message: "Dispute not found" });
+    }
+
+    const errand = dispute.errandId;
+    let chatHistory = [];
+    let photos = [];
+
+    if (errand && errand._id) {
+      [chatHistory, photos] = await Promise.all([
+        ErrandChatModel.find({ errandId: errand._id })
+          .populate("senderId", "firstName lastName email role")
+          .populate("receiverId", "firstName lastName email role")
+          .sort({ timestamp: 1 }),
+        ErrandPhotoModel.find({ errandId: errand._id }),
+      ]);
+    }
+
+    return res.status(200).json({
+      dispute,
+      errand,
+      chatHistory,
+      photos,
+    });
+  } catch (error) {
+    console.error("Get dispute details error:", error);
+    return res.status(500).json({
+      message: "Failed to fetch dispute details",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = { createDispute, getDisputes, getDisputeDetails, resolveDispute };
