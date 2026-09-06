@@ -13,6 +13,7 @@ const {
   getErranzers,
   adminDeleteErrand,
   adminGetErrandChatHistory,
+  deleteUser,
 } = require("../controllers/adminController");
 const { adminAuth } = require("../middleware/auth");
 const {
@@ -28,6 +29,8 @@ router.get("/erranzer/count", adminAuth, getTotalErranzers);
 router.get("/pending-erranzers", adminAuth, getUnverifiedErranzers);
 router.get("/details/erranzers", adminAuth, getErranzers);
 router.get("/user/:id", adminAuth, getUserDetails);
+router.delete("/user/:id", adminAuth, deleteUser);
+router.delete("/users/:id", adminAuth, deleteUser);
 router.get("/erranzer/:id", adminAuth, getErranzerDetails);
 router.get("/erranzers/:id", adminAuth, getErranzerDetails);
 router.get("/users", adminAuth, getUsers);

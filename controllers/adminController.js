@@ -5,6 +5,10 @@ const UserModel = require("../models/User");
 const ErrandChatModel = require("../models/ErrandChat");
 const ErrandPhotoModel = require("../models/ErrandPhoto");
 const DisputeModel = require("../models/Dispute");
+const WalletModel = require("../models/Wallet");
+const TransactionModel = require("../models/Transaction");
+const FavouriteHelperModel = require("../models/FavoriteHelper");
+const CorporateEmployeeModel = require("../models/CorporateEmployee");
 
 const adminGetAllErrands = async (req, res) => {
   try {
@@ -387,13 +391,34 @@ const adminDeleteErrand = async (req, res) => {
       return res.status(404).json({ message: "Errand not found" });
     }
 
-    // Check if errand is in progress and payment is held
-    if (errand.status === "in_progress" && errand.paymentStatus === "held") {
-      return res.status(400).json({
-        message: `Cannot delete errand: The errand is currently '${errand.status}' with payment status '${errand.paymentStatus}'. Please resolve or complete the errand before deleting.`,
-        status: errand.status,
-        paymentStatus: errand.paymentStatus,
-      });
+    // If funds were held in escrow (e.g. for an in-progress errand), release held pending funds back to payer wallet
+    const payerId = errand.bookedBy || errand.poster_id;
+    const totalAmount = Number(errand.budget || 0) + Number(errand.emergencySurcharge || 0);
+
+    if (payerId && totalAmount > 0 && (errand.status === "in_progress" || errand.paymentStatus === "held")) {
+      try {
+        const payerWallet = await WalletModel.findOne({ userId: payerId });
+        if (payerWallet && payerWallet.pending > 0) {
+          const refundPending = Math.min(payerWallet.pending, totalAmount);
+          payerWallet.pending -= refundPending;
+          payerWallet.balance += refundPending;
+          await payerWallet.save();
+
+          await TransactionModel.create({
+            userId: payerId,
+            type: "deposit",
+            amount: refundPending,
+            currency: payerWallet.currency || "CAD",
+            status: "completed",
+            metadata: {
+              errandId: errand._id,
+              reason: "errand_deleted_by_admin_escrow_refund",
+            },
+          });
+        }
+      } catch (refundErr) {
+        console.error("Error refunding held escrow during errand deletion:", refundErr);
+      }
     }
 
     // Clean up associated resources: photos, chat history, disputes
@@ -413,6 +438,65 @@ const adminDeleteErrand = async (req, res) => {
     console.error("Admin delete errand error:", error);
     return res.status(500).json({
       message: "Failed to delete errand",
+      error: error.message,
+    });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const user = await UserModel.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Clean up user's applications
+    await ErranzerApplicationModel.deleteMany({ userId: id });
+
+    // Clean up user's wallet
+    await WalletModel.deleteMany({ userId: id });
+
+    // Clean up favorite links
+    await FavouriteHelperModel.deleteMany({
+      $or: [{ userId: id }, { erranzerId: id }],
+    });
+
+    // Clean up corporate employee record if any
+    await CorporateEmployeeModel.deleteMany({ userId: id });
+
+    // If user was assigned as erranzer on errands, unassign them
+    await ErrandModel.updateMany(
+      { erranzer_id: id },
+      { $set: { erranzer_id: null, status: "open" } }
+    );
+
+    // Delete open errands posted by this user
+    await ErrandModel.deleteMany({ poster_id: id, status: "open" });
+
+    // Delete user
+    const deletedUser = await UserModel.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      message: "User deleted successfully",
+      deletedUser: {
+        _id: deletedUser._id,
+        username: deletedUser.username,
+        email: deletedUser.email,
+        firstName: deletedUser.firstName,
+        lastName: deletedUser.lastName,
+        role: deletedUser.role,
+      },
+    });
+  } catch (error) {
+    console.error("Delete user error:", error);
+    return res.status(500).json({
+      message: "Failed to delete user",
       error: error.message,
     });
   }
@@ -467,4 +551,5 @@ module.exports = {
   getAnalytics,
   adminDeleteErrand,
   adminGetErrandChatHistory,
+  deleteUser,
 };
