@@ -122,6 +122,8 @@ const getErranzerDetails = async (req, res) => {
       },
       frontIdUrl: application?.frontIdUrl || null,
       backIdUrl: application?.backIdUrl || null,
+      facePhotoUrl: application?.facePhotoUrl || null,
+      facePhotoStatus: application?.facePhotoStatus || "pending",
       availableDays: application?.availability?.days || [],
       availability: application?.availability || null,
       role: user.role,
@@ -165,10 +167,14 @@ const getUnverifiedErranzers = async (req, res) => {
 
 const approveorRejectErranzer = async (req, res) => {
   const { id } = req.params; // application id
-  const { status } = req.body;
+  const { status, rejectionReason } = req.body;
 
   try {
-    const application = await ErranzerApplicationModel.findById(id);
+    let application = await ErranzerApplicationModel.findById(id);
+
+    if (!application && mongoose.Types.ObjectId.isValid(id)) {
+      application = await ErranzerApplicationModel.findOne({ userId: id }).sort({ createdAt: -1 });
+    }
 
     if (!application) {
       return res.status(404).json({
@@ -186,6 +192,7 @@ const approveorRejectErranzer = async (req, res) => {
 
     if (status === "approved") {
       application.status = "approved";
+      application.facePhotoStatus = "verified";
 
       user.applicationStatus = "approved";
       user.kycStatus = "approved";
@@ -194,7 +201,11 @@ const approveorRejectErranzer = async (req, res) => {
 
     if (status === "rejected") {
       application.status = "rejected";
-
+      application.facePhotoStatus = "rejected";
+      if (rejectionReason) {
+        application.rejectionReason = rejectionReason;
+        user.rejectionReason = rejectionReason;
+      }
       user.applicationStatus = "rejected";
       user.kycStatus = "rejected";
     }
