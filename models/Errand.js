@@ -9,17 +9,15 @@ const errandSchema = new Schema(
     deadline: { type: String, required: true },
     category: {
       type: String,
-      enum: [
-        "delivery",
-        "handyman",
-        "groceries",
-        "transport",
-        "home-cleaning",
-        "errand-runner",
-        "caregiver",
-        "other",
-      ],
-      required: true,
+      required: [true, "Category is required"],
+      trim: true,
+      minlength: [2, "Category must be at least 2 characters"],
+      maxlength: [50, "Category cannot exceed 50 characters"],
+    },
+    isCustomCategory: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
     location: {
       type: {

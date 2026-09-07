@@ -4,6 +4,7 @@ const RecurringScheduleModel = require("../models/RecurringSchedule");
 const ErrandModel = require("../models/Errand");
 const WalletModel = require("../models/Wallet");
 const UserModel = require("../models/User");
+const { validateCategory } = require("../utils/categoryValidator");
 
 const calculateNextRun = (schedule, fromDate = new Date()) => {
   const next = new Date(fromDate);
@@ -57,6 +58,8 @@ const createRecurringErrand = async (schedule) => {
     budget: template.budget,
     deadline: template.deadline,
     category: template.category,
+
+    isCustomCategory: template.isCustomCategory || false,
 
     location: template.location,
 
@@ -144,6 +147,21 @@ const createRecurringSchedule = async (req, res) => {
         message: "errandTemplate.deadline is required",
       });
     }
+
+    // Validate category inside errandTemplate
+    const categoryValidation = validateCategory(
+      errandTemplate.category,
+      errandTemplate.customCategory
+    );
+
+    if (!categoryValidation.isValid) {
+      return res.status(400).json({
+        message: categoryValidation.error,
+      });
+    }
+
+    errandTemplate.category = categoryValidation.category;
+    errandTemplate.isCustomCategory = categoryValidation.isCustomCategory;
 
     // ==========================================
     // CREATE SCHEDULE FIRST

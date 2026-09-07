@@ -14,6 +14,7 @@ const {
   adminDeleteErrand,
   adminGetErrandChatHistory,
   deleteUser,
+  getCustomCategories,
 } = require("../controllers/adminController");
 const { adminAuth } = require("../middleware/auth");
 const {
@@ -35,6 +36,8 @@ router.get("/erranzer/:id", adminAuth, getErranzerDetails);
 router.get("/erranzers/:id", adminAuth, getErranzerDetails);
 router.get("/users", adminAuth, getUsers);
 router.get("/analytics", adminAuth, getAnalytics);
+router.get("/analytics/custom-categories", adminAuth, getCustomCategories);
+router.get("/categories/custom", adminAuth, getCustomCategories);
 router.patch("/pending-erranzers/:id", adminAuth, approveorRejectErranzer);
 router.patch("/user/:id", adminAuth, userManagemnent);
 

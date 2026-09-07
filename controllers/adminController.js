@@ -548,6 +548,44 @@ const adminGetErrandChatHistory = async (req, res) => {
   }
 };
 
+const getCustomCategories = async (req, res) => {
+  try {
+    const customCategories = await ErrandModel.aggregate([
+      { $match: { isCustomCategory: true } },
+      {
+        $group: {
+          _id: { $toLower: "$category" },
+          count: { $sum: 1 },
+          sampleName: { $first: "$category" },
+          latestCreatedAt: { $max: "$createdAt" },
+        },
+      },
+      { $sort: { count: -1 } },
+      {
+        $project: {
+          _id: 0,
+          categoryKey: "$_id",
+          categoryName: "$sampleName",
+          count: 1,
+          latestCreatedAt: 1,
+        },
+      },
+    ]);
+
+    return res.status(200).json({
+      message: "Custom categories fetched successfully",
+      totalCustomCategories: customCategories.length,
+      customCategories,
+    });
+  } catch (error) {
+    console.error("Get custom categories error:", error);
+    return res.status(500).json({
+      message: "Failed to fetch custom categories",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   adminGetAllErrands,
   getTotalErranzers,
@@ -563,4 +601,5 @@ module.exports = {
   adminDeleteErrand,
   adminGetErrandChatHistory,
   deleteUser,
+  getCustomCategories,
 };

@@ -14,6 +14,7 @@ const TransactionModel = require("../models/Transaction");
 const FamilyLinkModel = require("../models/FamilyLink");
 const CorporateAccountModel = require("../models/CorporateAccount");
 const CorporateEmployeeModel = require("../models/CorporateEmployee");
+const { validateCategory } = require("../utils/categoryValidator");
 
 // post errand has wallet debit with escrow and also a transaction
 const postErrand = async (req, res) => {
@@ -23,6 +24,7 @@ const postErrand = async (req, res) => {
     budget,
     deadline,
     category,
+    customCategory,
     location,
     address,
     status,
@@ -45,6 +47,21 @@ const postErrand = async (req, res) => {
         message: "User not found",
       });
     }
+
+    // ==========================================
+    // VALIDATE CATEGORY
+    // ==========================================
+
+    const categoryValidation = validateCategory(category, customCategory);
+
+    if (!categoryValidation.isValid) {
+      return res.status(400).json({
+        message: categoryValidation.error,
+      });
+    }
+
+    const finalCategory = categoryValidation.category;
+    const isCustomCategory = categoryValidation.isCustomCategory;
 
     // ==========================================
     // VALIDATE BUDGET
@@ -534,7 +551,9 @@ const postErrand = async (req, res) => {
 
         deadline,
 
-        category,
+        category: finalCategory,
+
+        isCustomCategory,
 
         location,
 
@@ -883,23 +902,41 @@ const deleteErrand = async (req, res) => {
 
 const editErrand = async (req, res) => {
   const { id } = req.params;
-  const { title, description, budget, deadline, category, location, priority } =
-    req.body;
+  const {
+    title,
+    description,
+    budget,
+    deadline,
+    category,
+    customCategory,
+    location,
+    priority,
+  } = req.body;
 
   try {
     // validate ID before querying
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid errand ID" });
     }
+
     const allowedUpdates = {
       title,
       description,
       budget,
       deadline,
-      category,
       location,
       priority,
     };
+
+    // If category is being updated, validate and normalize it
+    if (category !== undefined) {
+      const catValidation = validateCategory(category, customCategory);
+      if (!catValidation.isValid) {
+        return res.status(400).json({ message: catValidation.error });
+      }
+      allowedUpdates.category = catValidation.category;
+      allowedUpdates.isCustomCategory = catValidation.isCustomCategory;
+    }
 
     // remove undefined fields so they won’t overwrite existing values
     const updates = Object.fromEntries(
@@ -910,15 +947,7 @@ const editErrand = async (req, res) => {
 
     const updatedErrand = await ErrandModel.findByIdAndUpdate(
       id,
-      {
-        title,
-        description,
-        budget,
-        deadline,
-        category,
-        location,
-        priority,
-      },
+      updates,
       { new: true, runValidators: true },
     );
 

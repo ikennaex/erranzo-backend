@@ -96,17 +96,15 @@ const recurringScheduleSchema = new Schema(
 
       category: {
         type: String,
-        enum: [
-          "delivery",
-          "handyman",
-          "groceries",
-          "transport",
-          "home-cleaning",
-          "errand-runner",
-          "caregiver",
-          "other",
-        ],
-        required: true,
+        required: [true, "Category is required"],
+        trim: true,
+        minlength: [2, "Category must be at least 2 characters"],
+        maxlength: [50, "Category cannot exceed 50 characters"],
+      },
+
+      isCustomCategory: {
+        type: Boolean,
+        default: false,
       },
 
       location: {
