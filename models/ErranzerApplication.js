@@ -41,6 +41,27 @@ const erranzerApplicationSchema = new Schema(
       default: null,
     },
 
+    facePhotoUrl: {
+      type: String,
+      required: true,
+    },
+
+    facePhotoPublicId: {
+      type: String,
+      default: null,
+    },
+
+    facePhotoStatus: {
+      type: String,
+      enum: ["pending", "verified", "rejected"],
+      default: "pending",
+    },
+
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
