@@ -4,7 +4,7 @@ const { uploadToCloudinary } = require("../utils/cloudinary");
 
 const applyErranzer = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?._id;
 
     const {
       bio,
